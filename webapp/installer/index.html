@@ -49,6 +49,8 @@ progress::-webkit-progress-bar { background: #333; }
 progress::-webkit-progress-value { background: var(--pink); }
 progress::-moz-progress-bar { background: var(--pink); }
 #status { margin: 10px 0 0; min-height: 1.5em; font-size: 18px; }
+.stat-slot progress { margin-top: 6px; }
+.stat-slot:empty { display: none; }
 pre { color: var(--dim); font: 13px/1.5 ui-monospace, monospace; letter-spacing: 0; white-space: pre-wrap; margin: 10px 0 0; }
 pre:empty { display: none; }
 footer { margin: 24px 0 0; color: var(--dim); font-size: 13px; text-align: center; }
@@ -73,6 +75,7 @@ footer nav a { margin: 0 8px; color: #fff; }
   </ol>
   <p><label><span data-t="hexLabel"></span><br><input id="hex-file" type="file" accept=".hex"></label></p>
   <p><button id="teensy-go" class="go" disabled data-t="teensyGo"></button></p>
+  <div class="stat-slot" data-sec="teensy"></div>
   <p class="small"><span data-t="t1alt"></span>
     <a href="https://www.pjrc.com/teensy/loader.html" target="_blank" rel="noopener">PJRC Teensy Loader</a></p>
 </section>
@@ -87,6 +90,7 @@ footer nav a { margin: 0 8px; color: #fff; }
   <p class="warn" data-t="warn"></p>
   <p class="small" data-t="direct"></p>
   <p><button id="go" class="go" disabled data-t="install"></button></p>
+  <div class="stat-slot" data-sec="fm1"></div>
   <p class="small"><span data-t="brick"></span>
     <a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a></p>
 </section>
@@ -106,6 +110,7 @@ footer nav a { margin: 0 8px; color: #fff; }
   <p class="small"><a href="https://github.com/m-vave/fm1_open/blob/main/sdk/firmware/FM-1_015.fwsc" target="_blank" rel="noopener">FM-1_015.fwsc (M-VAVE, GitHub)</a></p>
   <p><label><span data-t="stockFile"></span><br><input id="stock-file" type="file" accept=".fwsc"></label></p>
   <p><button id="stock-go" disabled data-t="stockGo"></button></p>
+  <div class="stat-slot" data-sec="stock"></div>
   <p class="small" data-t="stockBackup"></p>
   <p class="small"><label class="tick"><input id="stock-recovery" type="checkbox"> <span data-t="stockRecovery"></span></label></p>
 </details>
@@ -1077,6 +1082,13 @@ $("teensy-go").addEventListener("click", async () => {
   }
 });
 lockTeensy();
+// each section shows its own progress and status, right under its button: they move to the section in use
+const moveStat = (sec) => { const slot = document.querySelector(`.stat-slot[data-sec="${sec}"]`); if (slot && $("status").parentNode !== slot) slot.append($("bar"), $("status")); };
+document.querySelectorAll(".stat-slot").forEach((slot) => {
+  const sec = slot.closest("section, details");
+  for (const ev of ["click", "change"]) sec.addEventListener(ev, (e) => { if (e.target.closest("button, input")) moveStat(slot.dataset.sec); }, true);
+});
+moveStat("teensy");
 
 // ---- the logo: the Mod Swapper splash, in the FM-1 menu's MB7 letters ----
 (() => {
