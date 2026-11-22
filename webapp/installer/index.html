@@ -1087,7 +1087,7 @@ lockTeensy();
     let X = Math.round((240 - w) / 2); x.fillStyle = col;
     for (const ch of t) { const [n, rows] = G[ch]; for (let r = 0; r < 7; r++) for (let k = 0; k < n; k++) if (rows[r] & (1 << (n - 1 - k))) x.fillRect(X + k * sx, y + r * sx, sx, sx); X += n * sx + gap; }
   };
-  text("BBL", 0, 12, 4, "#ff1494"); text("MOD", 96, 8, 3, "#ffffff"); text("SWAPPER", 160, 5, 2, "#ffffff");
+  text("BBL", 0, 12, 4, "#ff1494"); text("MOD", 91, 11, 8, "#ffffff"); text("SWAPPER", 179, 5, 2, "#ffffff");
 })();
 </script>
 </body>
