@@ -64,7 +64,7 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
 
 <nav class="toc">
   <a href="#need">1 NEED</a><a href="#wire">2 WIRE</a><a href="#sd">3 SD CARD</a><a href="#flash">4 FLASH</a>
-  <a href="#play">5 PLAY</a><a href="#which">6 WHICH TEENSY</a><a href="#stock">7 BACK TO STOCK</a><a href="#help">8 NOT WORKING</a><a href="#ports">9 PORTS</a>
+  <a href="#play">5 PLAY</a><a href="#which">6 WHICH TEENSY</a><a href="#stock">7 BACK TO STOCK</a><a href="#help">8 NOT WORKING</a><a href="#ports">9 PORTS</a><a href="#audioin">10 AUDIO IN</a>
 </nav>
 
 <section class="pop" id="need">
@@ -89,6 +89,7 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
     <tr><td>USB-C cable to cut</td><td>Must be a <b>data</b> cable (4 wires inside). Or buy a USB-C male 4-core pigtail: <a href="https://www.aliexpress.com/w/wholesale-usb-c-male-4-core-pigtail.html" target="_blank" rel="noopener">AliExpress</a>. Plenty are 2-wire charge only: check it says 4 core / data.</td></tr>
     <tr><td>Micro-USB cable</td><td>A data cable. Flashes and powers the Teensy.</td></tr>
     <tr><td>USB wall charger</td><td>5 V, 2 A. It powers the Teensy and charges the FM-1.</td></tr>
+    <tr><td>Optional: Audio Shield</td><td>PJRC Audio Adaptor <b>Rev D</b> (for Teensy 4.x) + a 3.5 mm jack, for audio in. See section 10.</td></tr>
     <tr><td>Optional: PSRAM</td><td>One or two 8 MB chips (<a href="https://www.pjrc.com/store/psram.html" target="_blank" rel="noopener">PJRC</a>) on the Teensy's underside, for more sample time. See section 6.</td></tr>
   </table></div>
   <p class="note">Plus a soldering iron and a multimeter.</p>
@@ -260,6 +261,33 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
     <li>Send it with the <a href="../ports/#report">report form</a>: choose <b>New port</b> and attach a zip. It goes on the ports page with your name on it.</li>
   </ol>
 </section>
+
+<section class="pop" id="audioin">
+  <h2>10  Audio in (optional)</h2>
+  <p>Add PJRC's Teensy Audio Shield and the Jam Box gets a live line in: play anything through it, record loops on its tracks, and sample straight to the card.</p>
+  <div class="tbl"><table>
+    <tr><th>Part</th><th>Notes</th></tr>
+    <tr><td>Audio Shield</td><td><a href="https://www.pjrc.com/store/teensy3_audio.html" target="_blank" rel="noopener">PJRC Audio Adaptor Board</a>, <b>Rev D or D2</b> (the Teensy 4.x one). Rev C is for the old Teensy 3 and won't work.</td></tr>
+    <tr><td>3.5 mm stereo jack</td><td>Panel or PCB jack, for the line in.</td></tr>
+    <tr><td>Header pins</td><td>To stack the shield on the Teensy (the Teensy needs pins for this).</td></tr>
+    <tr><td>PSRAM</td><td>Needed for recording loops: two chips = about 2 min 22 s of loop recording shared by 6 tracks, one chip = about 47 s.</td></tr>
+  </table></div>
+  <h3>Fit it</h3>
+  <ol>
+    <li>Stack the shield on the Teensy's pins, lined up as on PJRC's page. Keep the FM-1 cable on the 5 USB host pads (section 2) free.</li>
+    <li>Solder the jack to the shield's <b>LINE IN</b> pads: tip to <b>L</b>, ring to <b>R</b>, sleeve to <b>GND</b>. Left and right are mixed to mono.</li>
+    <li>Nothing else to flash or set: the firmware finds the shield by itself. It uses pins 8, 18, 19, 20, 21, 23, 3.3V and GND.</li>
+  </ol>
+  <h3>Use it</h3>
+  <ul>
+    <li><b>Play through it:</b> in the Jam Box, pick the <b>INPUT</b> machine on a track (PRESETS, past SMPL). The line in plays through that track's filter, drive and FX.</li>
+    <li><b>Record loops:</b> the track's <b>REC</b> page (after SENDS): ARM, LEN up to 8 bars, ONE SHOT, REPEAT or LOOPER (overdubs every pass).</li>
+    <li><b>Sample it:</b> the Sample Lab's recorder (SAMPLE LAB in the menu) saves up to 47 s to the card.</li>
+    <li>The shield's headphone jack hears the line in straight through.</li>
+    <li>The screen says <b>NO LINE IN</b> if it can't find the shield: check it's a Rev D and the pins are soldered.</li>
+  </ul>
+</section>
+
 
 <footer>
   BBL Mod Swapper by Blair (blairysbeatlab). Fully open: copy it, change it, share it. GPL-3.0, no warranty.<br>
