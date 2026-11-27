@@ -4,7 +4,7 @@
 |---|---|
 | Original firmware | X0X 1.2.2 by Charles Vestal |
 | Original source | https://github.com/charlesvestal/fm1-x0x |
-| Ported by | Blair (blairysbeatlab) |
+| Ported by | Blairy (blairysbeatlab) |
 | Status | **UNCONFIRMED**: tested only by its porter. [Report a test](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml) |
 | Licence | GPL-3.0 |
 

@@ -9,7 +9,7 @@ PAGE = "https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/"
 
 # stem, name, version, by, by link, what it is, status (UNCONFIRMED until someone other than its porter tests it)
 PORTS = [
-    ("JAMBOX", "BBL Jam Box", "0.9", "Blair (blairysbeatlab)", "https://github.com/UnkleBlairy/BBL-JAM-BOX",
+    ("JAMBOX", "BBL Jam Box", "0.9", "Blairy (blairysbeatlab)", "https://github.com/UnkleBlairy/BBL-JAM-BOX",
      "Live-jamming groovebox: 6 tracks, p-locks, trig conditions, the Sample Lab.", "UNCONFIRMED"),
     ("JIANT", "JIANT FM", "0.9.18", "juanjiant-bit", "https://github.com/juanjiant-bit/JIANT",
      "Six tracks, eleven synth engines, a 64-step sequencer, songs and a generator.", "UNCONFIRMED"),
@@ -54,6 +54,11 @@ textarea { min-height: 120px; resize: vertical; }
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
 .hp { position: absolute; left: -9999px; }
 .sent { background: var(--pink); color: #000; padding: 10px 14px; margin: 18px 0 0; display: none; }
+.btn.sm { padding: 2px 10px; font-size: 14px; }
+a.src { font-size: 13px; color: #555; }
+#more td { vertical-align: middle; }
+#more .ver { color: #777; font-size: 13px; }
+#find { margin-bottom: 10px; width: calc(100% - 32px); }
 pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-monospace, monospace; white-space: pre-wrap;
   max-height: 320px; overflow: auto; margin-bottom: 10px; }
 """
@@ -63,12 +68,19 @@ for stem, name, ver, by, link, what, status in PORTS:
     cls = "chip ok" if status == "CONFIRMED" else "chip"
     cards.append(f"""  <div class="port">
     <div class="row"><span class="name">{html.escape(name)}</span><span class="ver">{ver}</span><span class="{cls}">{status}</span></div>
-    <div class="by">By <a href="{link}" target="_blank" rel="noopener">{html.escape(by)}</a>. Ported by Blair.</div>
+    <div class="by">By <a href="{link}" target="_blank" rel="noopener">{html.escape(by)}</a>. Ported by Blairy.</div>
     <p>{html.escape(what)}</p>
     <a class="btn" href="{stem}/{stem}.zip" download>DOWNLOAD</a><span class="size">{mb(stem):.1f} MB zip</span>
   </div>""")
+MORE = [l.rstrip("\n").split("\t") for l in open(os.path.join(ROOT, "tools/more_ports.tsv"), encoding="utf-8") if l.strip()]
+MORE.sort(key=lambda r: r[1].lower())
+rows = []
+for stem, name, ver, owner, url, lic in MORE:
+    rows.append(f"""    <tr data-n="{html.escape((name + ' ' + owner).lower())}"><td>{html.escape(name)} <span class="ver">{html.escape(ver)}</span></td>
+      <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a></td><td>{lic}</td>
+      <td><a class="btn sm" href="{stem}/{stem}.zip" download>DOWNLOAD</a> <a class="src" href="{stem}/{stem}-source.zip" download>source</a></td></tr>""")
 total = os.path.getsize(os.path.join(ROOT, "ports/ALL-PORTS.zip")) / 1e6
-opts = "\n".join(f'          <option>{html.escape(n)} {v}</option>' for _, n, v, *_ in PORTS)
+opts = "\n".join([f'          <option>{html.escape(n)} {v}</option>' for _, n, v, *_ in PORTS] + [f'          <option>{html.escape(n)} {v} (untested)</option>' for _, n, v, *_ in MORE])
 
 body = f"""{css}</style>
 </head>
@@ -80,10 +92,10 @@ body = f"""{css}</style>
 </header>
 
 <nav class="toc">
-  <a href="#list">LIST</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
+  <a href="#list">LIST</a><a href="#more">MORE PORTS ({len(MORE)})</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
 </nav>
 
-<div class="sent" id="sent" role="status">Thanks! Your report is on its way to Blair.</div>
+<div class="sent" id="sent" role="status">Thanks! Your report is on its way to Blairy.</div>
 
 <section class="pop" id="list">
   <h2>Ports</h2>
@@ -91,6 +103,18 @@ body = f"""{css}</style>
   <p class="note">Felucca (by Leo Kuroshita) is built into the Teensy: it's always in the menu, no download needed.</p>
 {chr(10).join(cards)}
   <p class="note"><b class="pink">UNCONFIRMED</b> means only its porter has tested it so far. Tried one? Tell us below, it helps everyone.</p>
+</section>
+
+<section class="pop" id="more">
+  <h2>More ports: {len(MORE)} untested</h2>
+  <p>FM-1 firmwares by other people, ported to the Mod Swapper in one big batch. <b class="warn">Not tried on hardware yet.</b> Some will work, some won't: that's what the reports are for.</p>
+  <p class="note">The menu shows up to 16 firmwares (Felucca plus 15), so pick your favourites. Tried one? <a href="#report">Tell us</a> if it works or not, and it moves up to the list above.</p>
+  <input id="find" type="search" placeholder="Search {len(MORE)} ports by name or author..." aria-label="Search ports">
+  <div class="tbl"><table>
+    <tr><th>Port</th><th>Original by</th><th>Licence</th><th></th></tr>
+{chr(10).join(rows)}
+  </table></div>
+  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code this build was made from, with the porting changes.</p>
 </section>
 
 <section class="pop" id="card">
@@ -106,7 +130,7 @@ body = f"""{css}</style>
 
 <section class="pop" id="report">
   <h2>Report</h2>
-  <p>A bug, a port that works, a port you made, a question: it goes straight to Blair's inbox.</p>
+  <p>A bug, a port that works, a port you made, a question: it goes straight to Blairy's inbox.</p>
   <form id="report-form" action="#" method="POST" enctype="multipart/form-data">
     <input type="hidden" name="_subject" value="Mod Swapper report">
     <input type="hidden" name="_template" value="table">
@@ -127,7 +151,7 @@ body = f"""{css}</style>
     </div>
     <div class="two">
       <label><span>Your name</span><input name="Name" required autocomplete="name"></label>
-      <label><span>Your email (so Blair can reply)</span><input type="email" name="email" required autocomplete="email"></label>
+      <label><span>Your email (so Blairy can reply)</span><input type="email" name="email" required autocomplete="email"></label>
     </div>
     <div class="two">
       <label><span>Teensy PSRAM</span>
@@ -155,13 +179,17 @@ body = f"""{css}</style>
 </section>
 
 <footer>
-  BBL Mod Swapper by Blair (blairysbeatlab). Every port keeps its own authors' credits and licence (GPL-3.0). No warranty.<br>
+  BBL Mod Swapper by Blairy (blairysbeatlab). Every port keeps its own authors' credits and licence (GPL-3.0). No warranty.<br>
   Not made or supported by M-VAVE or PJRC. M-VAVE, FM-1 and Teensy are trademarks of their respective owners.
 </footer>
 </main>
 {logo}
 <script>
 document.getElementById('report-form').action = 'https://formsubmit.co/' + atob('{FORM_B64}');
+document.getElementById('find').addEventListener('input', e => {{
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#more tr[data-n]').forEach(r => r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none');
+}});
 if (new URLSearchParams(location.search).has('sent')) document.getElementById('sent').style.display = 'block';
 document.getElementById('copy').addEventListener('click', async (e) => {{
   const t = document.getElementById('prompt').textContent;

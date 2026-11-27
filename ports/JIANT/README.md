@@ -4,7 +4,7 @@
 |---|---|
 | Original firmware | JIANT FM 0.9.18 by juanjiant-bit |
 | Original source | https://github.com/juanjiant-bit/JIANT |
-| Ported by | Blair (blairysbeatlab) |
+| Ported by | Blairy (blairysbeatlab) |
 | Status | **UNCONFIRMED**: tested only by its porter. [Report a test](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml) |
 | Licence | GPL-3.0 |
 

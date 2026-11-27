@@ -8,10 +8,12 @@ FM-1 firmwares ported to the BBL Mod Swapper. Each one goes on your SD card and 
 
 | Port | Version | Original by | Status | Download |
 |---|---|---|---|---|
-| [BBL Jam Box](JAMBOX/) | 0.9 | Blair (blairysbeatlab) | UNCONFIRMED | [JAMBOX.zip](JAMBOX/JAMBOX.zip) |
+| [BBL Jam Box](JAMBOX/) | 0.9 | Blairy (blairysbeatlab) | UNCONFIRMED | [JAMBOX.zip](JAMBOX/JAMBOX.zip) |
 | [JIANT FM](JIANT/) | 0.9.18 | juanjiant-bit | UNCONFIRMED | [JIANT.zip](JIANT/JIANT.zip) |
 | [SLOOP](SLOOP/) | 2.8.5 | isod89 | UNCONFIRMED | [SLOOP.zip](SLOOP/SLOOP.zip) |
 | [X0X](X0X/) | 1.2.2 | Charles Vestal | UNCONFIRMED | [X0X.zip](X0X/X0X.zip) |
+
+Plus **113 more ports, untested on hardware yet**: search and download them on the ports page: https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/#more
 
 Felucca (by Leo Kuroshita) is built into the Teensy, so it's always in the menu with no file needed.
 

@@ -312,7 +312,7 @@ function buildLabels(H) {
 }
 
 const boardMeshes = [], boardMeshes2 = [], fm1Meshes = [];
-// FM-1's own PCB, rough mock-up from Blair's ruler photos (gen_fm1_pcb.py, f1_<name>.txt). Underside detail only, top flat.
+// FM-1's own PCB, rough mock-up from Blairy's ruler photos (gen_fm1_pcb.py, f1_<name>.txt). Underside detail only, top flat.
 const FM1MESH = [["pcb", "#1d6b3a"], ["dark", "#1b1b1f"], ["metal", "#b8bcc4"], ["white", "#eeeeea"], ["gold", "#c9c9c9"], ["batt", "#d9a23a"], ["red", "#c0392b"]];
 async function loadBoards() {
   for (const [k, hex] of FM1MESH) {

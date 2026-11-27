@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Original firmware | BBL Jam Box 0.9 by Blair (blairysbeatlab), from Felucca by Leo Kuroshita |
+| Original firmware | BBL Jam Box 0.9 by Blairy (blairysbeatlab), from Felucca by Leo Kuroshita |
 | Original source | https://github.com/hugelton/Felucca |
-| Ported by | Blair (blairysbeatlab) |
+| Ported by | Blairy (blairysbeatlab) |
 | Status | **UNCONFIRMED**: tested only by its porter. [Report a test](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml) |
 | Licence | GPL-3.0 |
 

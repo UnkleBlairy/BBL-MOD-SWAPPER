@@ -4,7 +4,7 @@
 |---|---|
 | Original firmware | SLOOP 2.8.5 by isod89 |
 | Original source | https://github.com/isod89/sloop-fm1 |
-| Ported by | Blair (blairysbeatlab) |
+| Ported by | Blairy (blairysbeatlab) |
 | Status | **UNCONFIRMED**: tested only by its porter. [Report a test](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml) |
 | Licence | GPL-3.0 |
 
