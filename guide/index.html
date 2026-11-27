@@ -269,15 +269,27 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
     <tr><th>Part</th><th>Notes</th></tr>
     <tr><td>Audio Shield</td><td><a href="https://www.pjrc.com/store/teensy3_audio.html" target="_blank" rel="noopener">PJRC Audio Adaptor Board</a>, <b>Rev D or D2</b> (the Teensy 4.x one). Rev C is for the old Teensy 3 and won't work.</td></tr>
     <tr><td>3.5 mm stereo jack</td><td>Panel or PCB jack, for the line in.</td></tr>
-    <tr><td>Header pins</td><td>To stack the shield on the Teensy (the Teensy needs pins for this).</td></tr>
+    <tr><td>Headers</td><td>Pins on the Teensy, long female sockets on the shield, so the Teensy plugs in on top.</td></tr>
     <tr><td>PSRAM</td><td>Needed for recording loops: two chips = about 2 min 22 s of loop recording shared by 6 tracks, one chip = about 47 s.</td></tr>
   </table></div>
   <h3>Fit it</h3>
   <ol>
-    <li>Stack the shield on the Teensy's pins, lined up as on PJRC's page. Keep the FM-1 cable on the 5 USB host pads (section 2) free.</li>
-    <li>Solder the jack to the shield's <b>LINE IN</b> pads: tip to <b>L</b>, ring to <b>R</b>, sleeve to <b>GND</b>. Left and right are mixed to mono.</li>
+    <li>The shield goes <b>underneath</b>, the Teensy plugs in <b>on top</b>, micro-USB ends together. That keeps the FM-1 cable on the Teensy's top host pads (section 2) free.</li>
+    <li>Solder the jack to the shield's <b>LINE IN</b> pads (the right-hand group): tip to <b>L</b>, ring to <b>R</b>, sleeve to <b>G</b>. Left and right are mixed to mono.</li>
     <li>Nothing else to flash or set: the firmware finds the shield by itself. It uses pins 8, 18, 19, 20, 21, 23, 3.3V and GND.</li>
   </ol>
+  <figure>
+    <img src="img/audioin-stack.jpg" width="1200" height="983" alt="Teensy 4.1 plugged on top of the Audio Shield Rev D, the FM-1 cable on the Teensy's top pads, a 3.5 mm jack wired to the shield" style="width:100%;height:auto">
+    <figcaption>Blair's rig from the side: shield underneath on sockets, Teensy on top, FM-1 cable (black) on the top pads, jack wires to LINE IN.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/audioin-top.jpg" width="1200" height="983" alt="Top view of the Teensy on the Audio Shield, micro-USB ends lined up" style="width:100%;height:auto">
+    <figcaption>From the top: both micro-USB / headphone ends on the left.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/audioin-pads.jpg" width="1200" height="332" alt="The Audio Shield's LINE IN pads G, R, L with three wires soldered" style="width:100%;height:auto">
+    <figcaption>The LINE IN pads on the shield: G, R and L (LINE OUT on the left is not used).</figcaption>
+  </figure>
   <h3>Use it</h3>
   <ul>
     <li><b>Play through it:</b> in the Jam Box, pick the <b>INPUT</b> machine on a track (PRESETS, past SMPL). The line in plays through that track's filter, drive and FX.</li>
