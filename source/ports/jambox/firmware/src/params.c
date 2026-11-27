@@ -1,0 +1,723 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
+/* Parameter descriptors, formatting and the page table. */
+static const char *const N_LWAVE[] = {"SIN", "TRI", "SAW", "SQR", "S&H"};
+/* LFO 2 (1.2, #154). SYNC: OFF (RATE), or one cycle per note value of the tempo, longest first (LSYNC_DIV: its N_DIV);
+ * TRIG: NOTE restarts it at PHS on a fresh phrase (as before), FREE never; POL: BI -1..+1 (as before), UNI 0..+1 */
+static const char *const N_LSYNC[] = {"OFF", "4BAR", "2BAR", "1/1", "1/2", "1/4", "1/8", "8T", "1/16", "16T", "1/32"};
+static const uint8_t LSYNC_DIV[11] = {0, 9, 8, 7, 6, 0, 1, 4, 2, 5, 3};
+/* SIMPLE: the FX track's LFOs (mod.c fxlfo_*): always in time, N_LSYNC's note values (no OFF); 0..1 waves from the
+ * knob's value (AMT < 0 the other way); their DESTs, the master's (FXD_G: the global each moves; D.SND R.SND scale
+ * every track's sends, 0xFF) */
+static const char *const N_FXRATE[] = {"4BAR", "2BAR", "1/1", "1/2", "1/4", "1/8", "8T", "1/16", "16T", "1/32"};
+static const char *const N_FXSYNC[] = {"ON", "OFF"};   /* (0: as they always were) */
+static const char *const N_FXTRIG[] = {"FREE", "TRIG"};
+static const char *const N_FXPOL[] = {"UNI", "BI"};
+static const char *const N_FXWAVE[] = {"SIN", "TRI", "UP", "DOWN", "SQR", "S&H"};
+static const char *const N_FXDST[] = {"OFF", "AMP", "DJ", "C.MIX", "CTUNE", "CFDBK", "CDAMP", "DTIME", "DFDBK", "DTONE",
+                                      "R.CLK", "R.FBK", "R.FLT", "D.SND", "R.SND", "D.OUT", "R.OUT", "PAN", "SMEAR",
+    "A.PIT", "A.TYP", "A.FM", "A.DRV", "A.CRS", "A.ATK", "A.DEC", "A.CUT", "A.RES", "A.FTP", "A.AMT", "A.FAT", "A.FDC", "A.DLY", "A.REV"};
+enum { FXD_DSND = 13, FXD_PAN = 17 };                                  /* (D.SND R.SND D.OUT R.OUT: mod.c fxs_gain 0..3) */
+static const char *const N_LTRIG[] = {"NOTE", "FREE"};
+static const char *const N_LPOL[] = {"BI", "UNI"};
+static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT",   /* (append-only: seq.c AM_*) */
+                                       "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD"};
+static const char *const N_SAMODE[] = {"UP", "DOWN", "UPDN", "CYCLE", "RAND", "PATRN"};   /* SIMPLE ARP (seq.c ARP_MODE) */
+static const char *const N_SARATE[] = {"1/64", "1/32", "16T", "1/16", "8T", "1/8", "1/4"};   /* (seq.c ARP_DIV) */
+static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"};
+/* SIMPLE: SEQ DIV, N_DIV's ten and 1/64 (10: fx.c div_samples), SPEED x1/4 x1/2 x1 x2 x4 = 1/4 1/8 1/16 1/32 1/64 (ui_input.c gbseq_knob) */
+static const char *const N_SDIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR", "1/64"};
+/* the delay's TIME (G_DTIME): N_DIV's ten (their values kept), then 1.5.1's dotted ones appended (stored values:
+ * append-only). A list of its own: ARP RATE, SEQ DIV and LFO SYNC keep N_DIV's ten (fx.c delay_samples) */
+static const char *const N_DTIME[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR",
+                                      "1/8D", "1/16D", "1/4D"};
+static const char *const N_SCALE[] = {"CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", "MPEN", "HARM",
+                                    "PHRY", "LYD", "LOC", "MEL", "BLUES", "WHOLE", "DIMHW", "DIMWH"};
+static const char *const N_ONOFF[] = {"OFF", "ON"};
+/* ANALOG's filter TYPE (1.5, #104; eng_analog.c): the SVF's low-pass (as always), band-pass, high-pass output */
+static const char *const N_FTYPE[] = {"LP", "BP", "HP"};
+/* ENV SYNC (1.5, #175; voice.c esync_coef): ATK DEC REL as note values of the tempo, shortest first. 0..127 split
+ * evenly over these 25 (param_format's F_INT name list: value v is ESYNC_NAMES[v * 25 / 128]); ESYNC_UNITS: each in
+ * 1/384 of a bar of 4/4 (a quarter 96), 0 = the shortest time ATK / DEC / REL 0 has. 0-terminated (param_format) */
+#define ESYNC_N 25u
+static const char *const ESYNC_NAMES[ESYNC_N + 1u] = {
+    "0", "1/64T", "1/64", "1/32T", "1/64D", "1/32", "1/16T", "1/32D", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
+    "1/4", "1/2T", "1/4D", "1/2", "1/1T", "1/2D", "1/1", "1/1D", "2BAR", "3BAR", "4BAR", 0};
+static const uint16_t ESYNC_UNITS[ESYNC_N] = {0, 4, 6, 8, 9, 12, 16, 18, 24, 32, 36, 48, 64, 72,
+                                              96, 128, 144, 192, 256, 288, 384, 576, 768, 1152, 1536};
+static const param_desc_t ESYNC_DESC[3] = {   /* ATK DEC REL with ENV SYNC on: the range and defaults as ever */
+    {"ATK", F_INT, 0, 127, 10, ESYNC_NAMES, 0},
+    {"DEC", F_INT, 0, 127, 70, ESYNC_NAMES, 0},
+    {"REL", F_INT, 0, 127, 60, ESYNC_NAMES, 0},
+};
+static uint32_t esync_idx(int32_t v) { return (uint32_t)(v & 127) * ESYNC_N >> 7; }   /* (param_format's split) */
+/* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
+ * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
+static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ", "SEQ+T"};
+/* chord keys (chord.c): OFF, the diatonic triad / seventh of the track's ROOT and SCALE on the key, fixed shapes */
+static const char *const N_CHRD[] = {"OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"};
+static const char *const N_VOIC[] = {"CLOSE", "OPEN", "INV1", "INV2", "+OCT"};   /* VC_CLOSE .. VC_BASS */
+static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
+static const char *const N_GLMODE[] = {"RATE", "TIME"};
+static const char *const N_PRIO[] = {"LAST", "LOW", "HIGH"};
+static const char *const N_ALLOC[] = {"ROT", "REUSE"};
+static const char *const N_ORDER[] = {"NOTE", "PLAY"};
+static const char *const N_CLOCK[] = {"INT", "USB", "TRS"};
+static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
+/* MIDI IN (seq.c midi_base): 1..4 -> parts, 5..16 ignored / all -> selected / (1.2, append-only) 5..8, 9..12, 13..16 -> parts
+ * / (1.5.5, #202) TRACK: each track its own channel (song.mch, MENU > MIDI > T1..T4 CHANNEL) */
+static const char *const N_ROUTE[] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16", "TRACK"};
+static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+static const char *const N_DASH[] = {"--"};
+static const char *const N_GO[] = {"--", "GO"};
+static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
+static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
+/* the INSERT's types (1.5, fx.c IT_*; append-only: stored). Its three values A B C mean what the type says (ins_desc) */
+static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CRUSH", "PHASR", "FLANG", "CHOR"};
+/* CRUSH: BITS 1..16 and RATE (the held sample's rate, fx.c INS_HOLD) over the range in 16 even parts (0-terminated) */
+static const char *const N_IBITS[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+                                      "16", 0};
+static const char *const N_IRATE[] = {"689", "919", "1.1k", "1.4k", "1.8k", "2.2k", "2.8k", "3.7k", "4.4k", "5.5k",
+                                      "7.4k", "8.8k", "11k", "15k", "22k", "44k", 0};
+/* modulation matrix (mod.c): sources, destinations (E1..E8 = P_E0..P_E7: shown with the engine's labels).
+ * Append-only (stored values keep their meaning): S&H SLEW and DEPTH (#132) came after EXPR and E8; VEL and TIME
+ * (1.5.6, #213: at the note) after DEPTH */
+static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", "MODW", "AT", "EXPR", "S&H", "SLEW", "FENV"};
+static const char *const N_HOLD[] = {"HOLD"};   /* (an F_TIME with these names: its top is HOLD, FM SYN's C.DEC D.DEC) */
+static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "SCRUB", "-", "DLY", "REV", "RATE",
+                                     "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "DEPTH", "VEL", "TIME",
+                                     /* SIMPLE: every other knob that moves smoothly (mod.c MDX), page by page */
+                                     "ATK", "DEC", "SUS", "REL", "E.FLT", "E.PIT", "E.SHP", "E.R2", "L.FLT", "L.SHP", "L.AMP",
+                                     "DTIME", "DFDBK", "DTONE", "R.CLK", "R.FBK", "R.FLT", "RES", "F.AMT", "F.ATK",
+                                     "F.DEC", "F.SUS", "F.REL", "C.MIX", "CTUNE", "CFDBK", "CDAMP", "DJ",
+                                     "LEVEL", "CRUSH", "GATE",   /* (5 letters fit) (ANALOG's LEVEL and CRUSH, SAMPLER's GATE) */
+                                     "TYPE", "WAVE", "PHASE", "L.FAD", "SYNC", "L.TRG", "POL", "VOL",   /* (they step) */
+                                     "C.ATK", "C.DEC", "D.ATK", "D.DEC", "FB", "DTUN", "SMEAR", "NOIS"};   /* (NOIS: FM HH / CYM) */   /* (FM SYN's) */
+static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN", "PHYS",
+                                             "DRUM", "NOISE", "FM6",
+};
+
+#define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
+#define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
+
+static const param_desc_t TP[P_COUNT] = {
+    [P_LEVEL] = PD("LVL", F_DB, 0, 127, 104),
+    [P_ATK] = PD("ATK", F_TIME, 0, 127, 10),
+    [P_DEC] = PD("DEC", F_TIME, 0, 127, 70),
+    [P_SUS] = PD("SUS", F_PCT, 0, 127, 90),
+    [P_REL] = PD("REL", F_TIME, 0, 127, 60),
+    [P_ED_FLT] = PD("FLT", F_BIPCT, -64, 63, 0),
+    [P_ED_PIT] = PD("PIT", F_BIPCT, -64, 63, 0),
+    [P_ED_SHP] = PD("SHP", F_BIPCT, -64, 63, 0),
+    [P_ED_FX] = PD("R2", F_BIPCT, -64, 63, 0),   /* SIMPLE: ENV DEST R2: the envelope on the SYN machine's ratio 2 (eng_digital.c) */
+    [P_LRATE] = PD("RATE", F_LFOHZ, 0, 127, 60),
+    [P_LWAVE] = PE("WAVE", N_LWAVE, 0),
+    [P_LPHASE] = PD("PHS", F_INT, 0, 127, 0),
+    [P_LFADE] = PD("FADE", F_TIME, 0, 127, 0),
+    [P_LD_PIT] = PD("PIT", F_BIPCT, -64, 63, 0),
+    [P_LD_FLT] = PD("FLT", F_BIPCT, -64, 63, 0),
+    [P_LD_SHP] = PD("SHP", F_BIPCT, -64, 63, 0),
+    [P_LD_AMP] = PD("AMP", F_PCT, 0, 127, 0),
+#if FELUCCA_SIMPLE
+    [P_AMODE] = PE("MODE", N_SAMODE, 0),
+#else
+    [P_AMODE] = PE("MODE", N_AMODE, 0),
+#endif
+#if FELUCCA_SIMPLE
+    [P_ARATE] = PE("RATE", N_SARATE, 3),
+#else
+    [P_ARATE] = PE("RATE", N_DIV, 2),
+#endif
+    [P_AOCT] = PD("OCT", F_INT, 1, 4, 1),
+    [P_AGATE] = PD("GATE", F_PCT, 1, 127, 64),
+#if FELUCCA_SIMPLE
+    [P_ASWING] = PD("FADE", F_PCT, 0, 100, 0),
+#else
+    [P_ASWING] = PD("SWG", F_PCT, 0, 100, 0),
+#endif
+    [P_APROB] = PD("CHANCE", F_PCT, 0, 100, 100),       /* SIMPLE (no ARP): the track's CHANCE, % (seq.c seq_miss) */
+#if FELUCCA_SIMPLE
+    [P_AHOLD] = PE("ARP", N_ONOFF, 0),
+#else
+    [P_AHOLD] = PE("HOLD", N_ONOFF, 0),
+#endif
+    [P_AORDER] = PE("ORD", N_ORDER, 0),
+    [P_ROOT] = PD("ROOT", F_NOTE, 0, 11, 0),
+    [P_SCALE] = PE("SCL", N_SCALE, 0),
+    [P_QUANT] = PE("QNT", N_QUANT, 0),
+    [P_TRANS] = PD("PITCH", F_SEMI, -24, 24, 0),
+    [P_SLEN] = PD("LEN", F_STEPS, 1, 64, 16),           /* SIMPLE: 4 pages of 16 (ui_input.c gbs_base) */
+    [P_SDIV] = PE("DIV", N_SDIV, 2),
+    [P_SSWING] = PD("SWG", F_PCT, 0, 100, 0),
+    [P_SGATE] = PD("GATE", F_PCT, 1, 127, 64),
+    [P_DIST] = PD("SCRUB", F_INT, 0, 127, 0),   /* (the old distortion's id: SAMPLER's SCRUB, eng_sampler.c) */
+    [P_CHOR] = PD("CHO", F_PCT, 0, 127, 0),
+    [P_DLY] = PD("DLY", F_PCT, 0, 127, 0),
+    [P_REV] = PD("REV", F_PCT, 0, 127, 0),
+    [P_VOICE] = PE("VCE", N_VOICE, 0),
+    [P_GLIDE] = PD("GLD", F_TIME, 0, 127, 0),
+    [P_GLMODE] = PE("GLMOD", N_GLMODE, 0),
+    [P_PRIO] = PE("PRIO", N_PRIO, 0),
+    [P_ALLOC] = PE("ALLOC", N_ALLOC, 0),
+    [P_DETUNE] = PD("DTUNE", F_INT, 0, 127, 40),
+    [P_PAN] = PD("PAN", F_BIPCT, -64, 63, 0),
+    [P_MUTE] = PE("MUTE", N_ONOFF, 0),
+    [P_SLCR] = PE("SLCR", N_SLCR, 0),
+    [P_SLPAT] = PD("PAT", F_INT, 1, 16, 1),        /* SL_PAT[] */
+    [P_SLRATE] = PE("RATE", N_SLDIV, 1),
+    [P_SLDEPTH] = PD("DEPTH", F_PCT, 0, 127, 127),
+#define MSLOT(k) [P_M##k##SRC] = PE("SRC" #k, N_MSRC, 0), [P_M##k##DST] = PE("DST" #k, N_MDST, 0), \
+                 [P_M##k##AMT] = PD("AMT" #k, F_BIPCT, -64, 63, 0)
+    [P_M1SRC] = PE("SRC", N_MSRC, 1), [P_M1DST] = PE("DEST", N_MDST, 0), [P_M1AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    [P_M2SRC] = PE("SRC2", N_MSRC, 0), [P_M2DST] = PE("DEST", N_MDST, 0), [P_M2AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    MSLOT(3), MSLOT(4),
+#undef MSLOT
+/* the OP ENV / OP LEVEL values of DIGITAL (ids 61..80): with FELUCCA_FM4 its operator envelopes; without it
+ * inert, on no page and in no editor layout, read only when a DIGITAL sound converts (fm4_convert.c). Their labels
+ * stay: the editor's library files key parameters by label ("ATK#2" ..), so an old file's values still find them */
+#define FMOP(k) [P_FM##k##_ATK] = PD("ATK", F_TIME, 0, 127, 0), \
+                [P_FM##k##_DEC] = PD("DEC", F_TIME, 0, 127, 0), \
+                [P_FM##k##_SUS] = PD("SUS", F_PCT, 0, 127, 127), \
+                [P_FM##k##_REL] = PD("REL", F_TIME, 0, 127, 0), \
+                [P_FM##k##_LEVEL] = PD("LVL", F_PCT, 0, 127, 127)
+    [P_FLT_CUT] = PD("CUT", F_PCT, 0, 127, 127), [P_FLT_RES] = PD("RES", F_PCT, 0, 127, 0),
+    [P_FLT_DRV] = PD("DRV", F_PCT, 0, 127, 0), [P_FLT_KTR] = PD("KTR", F_PCT, 0, 127, 0),
+    [P_FM1_LEVEL] = PD("LVL", F_PCT, 0, 127, 127),
+    [P_FE_ATK] = PD("ATK", F_TIME, 0, 127, 0), [P_FE_DEC] = PD("DEC", F_TIME, 0, 127, 40),
+    [P_FE_SUS] = PD("SUS", F_PCT, 0, 127, 0), [P_FE_AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    [P_FE_REL] = PD("REL", F_TIME, 0, 127, 40),
+    /* FM SYN (eng_digital.c syn_*): its modulators C and D on operator 3 and 4's old ids */
+    [P_FM3_ATK] = PD("C.ATK", F_TIME, 0, 127, 0), [P_FM3_DEC] = {"C.DEC", F_TIME, 0, 127, 90, N_HOLD, 0},
+    [P_FM3_SUS] = PD("SUS", F_PCT, 0, 127, 127), [P_FM3_REL] = PD("REL", F_TIME, 0, 127, 0),
+    [P_FM3_LEVEL] = PD("FB", F_PCT, 0, 127, 0),
+    [P_FM4_ATK] = PD("D.ATK", F_TIME, 0, 127, 0), [P_FM4_DEC] = {"D.DEC", F_TIME, 0, 127, 127, N_HOLD, 0},
+    [P_FM4_SUS] = PD("SUS", F_PCT, 0, 127, 127), [P_FM4_REL] = PD("REL", F_TIME, 0, 127, 0),
+    [P_FM4_LEVEL] = PD("DTUN", F_PCT, 0, 127, 0),
+#undef FMOP
+    [P_CHRD] = PE("CHRD", N_CHRD, 0),
+    [P_VOIC] = PE("VOIC", N_VOIC, 0),
+/* the DRUM engine's lane levels (eng_drum.c, #97): 100 % = the kit as designed (the sound before 1.1) */
+#define LANE(k, l) [P_LN0 + (k)] = PD(l, F_PCT, 0, 127, 127)
+    LANE(3, "HATCL"), LANE(4, "HATOP"), LANE(5, "TOM"), LANE(6, "RIM"), LANE(7, "BELL"),
+#undef LANE
+    /* SIMPLE: lanes 1 and 2 are ANALOG's (eng_analog.c): an 808 machine's LEVEL (its eighth knob) and AGE */
+    [P_LN0] = PD("LEVEL", F_INT, 0, 127, 100), [P_LN1] = PD("CRUSH", F_INT, 0, 127, 0),
+    /* .. lane 3 SAMPLER's GATE (eng_sampler.c): 0 the key's length, 1..16 steps (loops) */
+    [P_LN2] = PD("GATE", F_INT, 0, 16, 2),
+    [P_LSYNC] = PE("SYNC", N_LSYNC, 0),
+    [P_LTRIG] = PE("TRIG", N_LTRIG, 0),
+    [P_LPOL] = PE("POL", N_LPOL, 0),
+    [P_SQNT] = PE("QNTZ", N_ONOFF, !FELUCCA_SIMPLE),   /* SIMPLE: OFF, live recording keeps its timing (hold REC) */            /* ON: every step on its start, as before 1.2 */
+    [P_SPRD] = PD("SPRD", F_PCT, 0, 127, 0),      /* #148: 0 = every voice on PAN, as before (fx.c mix_spread) */
+    /* the INSERT (1.5, fx.c track_insert): TYPE OFF = as before. A B C as the editor protocol names them; the device
+     * shows the type's own labels (ins_desc) */
+    [P_ITYPE] = PE("INSRT", N_ITYPE, 0),
+    [P_IA] = PD("INS A", F_PCT, 0, 127, 64),
+    [P_IB] = PD("INS B", F_PCT, 0, 127, 96),
+    [P_IC] = PD("INS C", F_PCT, 0, 127, 96),
+    [P_IMIX] = PD("MIX", F_PCT, 0, 127, 127),
+    [P_FTYPE] = PE("TYPE", N_FTYPE, 0),           /* 1.5 (#104): ANALOG's filter, LP = as before (eng_analog.c) */
+    [P_ESYNC] = PE("ESYNC", N_ONOFF, 0),          /* 1.5 (#175): OFF = ATK DEC REL in ms, as before (voice.c esync) */
+};
+
+/* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
+ * LPF, the swept ones RATE DEPTH FDBK; OFF TP's own */
+#define PU(l, f, df, n, u) {l, f, 0, 127, df, n, u}
+static const param_desc_t INS_DESC[3][3] = {
+    {PU("DRIVE", F_PCT, 64, 0, 0), PU("TONE", F_CUTOFF, 96, 0, 0), PU("LEVEL", F_DB, 96, 0, 0)},
+    {PU("BITS", F_INT, 64, N_IBITS, 0), PU("RATE", F_INT, 96, N_IRATE, "Hz"), PU("LPF", F_CUTOFF, 96, 0, 0)},
+    {PU("RATE", F_LFOHZ, 64, 0, 0), PU("DEPTH", F_PCT, 96, 0, 0), PU("FDBK", F_PCT, 96, 0, 0)},
+};
+#undef PU
+static const param_desc_t *ins_desc(int32_t type, uint32_t k)
+{
+    if (type <= 0 || type >= (int32_t)NELEM(N_ITYPE))
+        return &TP[P_IA + k];
+    return &INS_DESC[type < 5 ? 0 : type == 5 ? 1 : 2][k];   /* (IT_SOFT .. IT_FUZZ, IT_CRUSH, the swept ones) */
+}
+
+static const param_desc_t GP[G_COUNT] = {
+    [G_BPM] = PD("BPM", F_BPM, 40, 240, 120),
+    [G_SWING] = PD("SWG", F_PCT, 0, 100, 0),
+    [G_CLOCK] = PE("CLK", N_CLOCK, 0),
+    [G_TUNE] = PD("TUNE", F_INT, -50, 50, 0),     /* cents; edited on MENU > AUDIO TUNE (1.2: menu_items.c MI_TUNE) */
+    [G_DTIME] = PD("TIME", F_PCT, 0, 127, 80),                 /* free running: 20 ms .. 1.45 s (fx.c delay_q8) */
+    [G_DFDBK] = PD("FDBK", F_PCT, 0, 120, 60),
+    [G_DCOLOR] = PD("TONE", F_PCT, 0, 127, 64),            /* SIMPLE: 64 flat, below a low-pass, above a high-pass */
+    [G_DMIX] = PD("SMEAR", F_INT, 0, 127, 40),             /* the reverb's (rev_swarm.c): was the delay's level, no knob, 90 in old kits */
+    [G_RSIZE] = PD("CLOCK", F_INT, 0, 127, 70),
+    [G_RDAMP] = PD("FDBK", F_INT, 0, 127, 70),
+    [G_CRATE] = PD("TUNE", F_PCT, 0, 127, 40),              /* SIMPLE: the master COMB's tuning (mfx.c) */
+    [G_CDEPTH] = PD("FDBK", F_PCT, 0, 127, 60),            /* .. its feedback */
+    /* G_MIDI, G_SYNC, G_INFO: the old SYSTEM page's (gone in 1.2), on no page: MIDI's value was never read (its card
+     * showed the USB state), SYNC was a placeholder, CPU a reading; the USB state and the CPU load are MENU > SYSTEM >
+     * INFO's now (ui_menu.c). Kept: the ids and G_COUNT are fixed by the formats and the protocol */
+    [G_MIDI] = PD("DJ", F_BIPCT, -64, 63, 0),              /* SIMPLE: the master DJ filter, left low-pass, right high-pass (mfx.c) */
+    [G_SYNC] = PD("MIX", F_PCT, 0, 127, 0),                /* SIMPLE: the master COMB's mix */
+    /* MIDI IN's routing, edited on MENU > MIDI > MIDI IN (1.2: menu_items.c MI_MIDIIN; up to 1.1.5 GLO > SYSTEM ROUT),
+     * stored with the project as before. (was "--": stored 0 = CH1-4, as MIDI IN always was) */
+    [G_ROUTE] = PE("ROUT", N_ROUTE, 0),
+    [G_INFO] = PD("DAMP", F_PCT, 0, 127, 0),               /* SIMPLE: the master COMB's damping */
+    [G_F1SYNC] = PE("SYNC", N_FXSYNC, 0), [G_F1TRIG] = PE("TRIG", N_FXTRIG, 0), [G_F1POL] = PE("POL", N_FXPOL, 0),
+    [G_F1FADE] = PD("FADE", F_TIME, 0, 127, 0), [G_F1FREE] = PD("RATE", F_LFOHZ, 0, 127, 60),
+    [G_F2SYNC] = PE("SYNC", N_FXSYNC, 0), [G_F2TRIG] = PE("TRIG", N_FXTRIG, 0), [G_F2POL] = PE("POL", N_FXPOL, 0),
+    [G_F2FADE] = PD("FADE", F_TIME, 0, 127, 0), [G_F2FREE] = PD("RATE", F_LFOHZ, 0, 127, 60),
+    [G_F1RATE] = PE("RATE", N_FXRATE, 4),              /* SIMPLE: the FX track's LFOs (were SLOT .. INIT) */
+    [G_F1DEST] = PE("DEST", N_FXDST, 0),
+    [G_F1AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    [G_F2RATE] = PE("RATE", N_FXRATE, 4),
+    [G_F2DEST] = PE("DEST", N_FXDST, 0),
+    [G_F2AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    [G_F3RATE] = PE("RATE", N_FXRATE, 4),
+    [G_F3DEST] = PE("DEST", N_FXDST, 0),
+    /* the reverb's model on the REVERB page: the id of the old GM drum channel (G_DRCH, inert since 1.0) */
+    [G_RTYPE] = PD("FILT", F_INT, -64, 63, 0),   /* the reverb's filter (rev_swarm.c): 0 open, an old kit's GRIT 0 too */
+    [G_F3AMT] = PD("AMT", F_BIPCT, -64, 63, 0),
+    [G_AMP] = PD("AMP", F_PCT, 0, 127, 127),               /* SIMPLE: the whole mix's level, 127 as it is (fx.c amp_block) */
+    [G_A_PIT] = PD("PITCH", F_INT, -24, 24, 0), [G_A_TYP] = PD("TYPE", F_BIPCT, -64, 63, 0),   /* ALL's offsets (mod.c all_block) */
+    [G_A_FM] = PD("FM", F_BIPCT, -64, 63, 0), [G_A_DRV] = PD("DRIVE", F_BIPCT, -64, 63, 0),
+    [G_A_CRS] = PD("CRUSH", F_BIPCT, -64, 63, 0), [G_A_ATK] = PD("ATK", F_BIPCT, -64, 63, 0),
+    [G_A_DEC] = PD("DEC", F_BIPCT, -64, 63, 0), [G_A_CUT] = PD("CUT", F_BIPCT, -64, 63, 0),
+    [G_A_RES] = PD("RES", F_BIPCT, -64, 63, 0), [G_A_FTP] = PD("TYPE", F_BIPCT, -64, 63, 0),
+    [G_A_AMT] = PD("AMT", F_BIPCT, -64, 63, 0), [G_A_FAT] = PD("ATK", F_BIPCT, -64, 63, 0),
+    [G_A_FDC] = PD("DEC", F_BIPCT, -64, 63, 0), [G_A_DLY] = PD("DLY", F_BIPCT, -64, 63, 0),
+    [G_A_REV] = PD("REV", F_BIPCT, -64, 63, 0), [G_A_OUT] = PD("OUT", F_INT, 0, 63, 0),
+    [G_PAN] = PD("PAN", F_BIPCT, -64, 63, 0),               /* SIMPLE: the whole mix's pan (fx.c amp_block) */
+    [G_F1WAVE] = PE("WAVE", N_FXWAVE, 0),
+    [G_F2WAVE] = PE("WAVE", N_FXWAVE, 0),
+    [G_F3WAVE] = PE("WAVE", N_FXWAVE, 0),
+};
+
+static const param_desc_t AD_SUS = {"-", F_INT, 0, 127, 90, 0, 0}, AD_REL = {"-", F_INT, 0, 127, 60, 0, 0};
+static const param_desc_t AD_NONE = {"-", F_INT, 0, 127, 0, 0, 0};
+static const param_desc_t FM_NOIS = {"NOIS", F_PCT, 0, 127, 127, 0, 0};   /* FM HH / CYM: the noise under the metal (P_LN3) */
+/* SIMPLE: lane ids that are a knob of track t's engine: LEVEL (P_LN0) ANALOG's and SAMPLER's, AGE (P_LN1) ANALOG's,
+ * GATE (P_LN2) SAMPLER's */
+/* SIMPLE: every track's filter is MONO's (eng_digital.c mono_filter), its TYPE a blend. This: MONO and FM SYN, TYPE in P_LN1;
+ * the rest have it in P_FTYPE (P_LN1 is an 808's CRUSH) */
+static int flt_blend(const track_t *t)
+{
+    uint32_t e = eng_idx(t->eng_req);
+    return FELUCCA_SIMPLE && (e == ENGI_MONO || (e == ENGI_DIGITAL && t->p[P_E7] % 6 == 0));
+}
+static int ln_on(const track_t *t, uint32_t id)
+{
+    uint32_t e = eng_idx(t->eng_req);
+    return id == P_LN0 ? e == ENGI_ANALOG || e == ENGI_SAMPLER || e == ENGI_MONO : id == P_LN1 ? e == ENGI_ANALOG || e == ENGI_MONO : id == P_LN2 ? e == ENGI_SAMPLER : 1;
+}
+static const param_desc_t *track_desc(const track_t *t, uint32_t id)
+{
+    if ((id == P_SUS || id == P_REL) && trk_machine(t)->drum == 1)   /* a drum machine: attack and decay only */
+        return id == P_SUS ? &AD_SUS : &AD_REL;
+    if (id >= P_E0 && id <= P_E7) {                   /* the engine asked for (t->engine follows after a fade) */
+        const engine_t *e = ENGINES[eng_idx(t->eng_req)];
+        const param_desc_t *d = e->desc ? e->desc(t, id - P_E0) : 0;   /* a mode-dependent label / names */
+        return d ? d : &e->edit[id - P_E0];
+    }
+    if (FELUCCA_SIMPLE && id == P_FTYPE && !flt_blend(t))
+        return &MONO_TYPE;                            /* (the others: the same filter, the blend in P_FTYPE) */
+    if (FELUCCA_SIMPLE && id == P_LN1 && flt_blend(t))
+        return &MONO_TYPE;                            /* (MONO's and FM SYN's filter TYPE) */
+    if (FELUCCA_SIMPLE && id == P_LN3)                /* (FM HH / CYM's NOIS; the old DRUM lane elsewhere: no knob) */
+        return eng_idx(t->eng_req) == ENGI_DIGITAL && (t->p[P_E7] % 6 == 3 || t->p[P_E7] % 6 == 4) ? &FM_NOIS : &AD_NONE;
+    if (FELUCCA_SIMPLE && id >= P_LN0 && id <= P_LN2 && !ln_on(t, id))
+        return &AD_NONE;                              /* (LEVEL: ANALOG's and SAMPLER's, AGE ANALOG's, GATE SAMPLER's) */
+    if (FELUCCA_SIMPLE && id == P_LN0 && eng_idx(t->eng_req) == ENGI_MONO)
+        return &MONO_SAT;                             /* (MONO's SAT) */
+    if (id >= P_IA && id <= P_IC)                     /* the INSERT's values as its TYPE names them */
+        return ins_desc(t->p[P_ITYPE], id - P_IA);
+    if (t->p[P_ESYNC] && (id == P_ATK || id == P_DEC || id == P_REL))   /* ENV SYNC: note values (1.5, #175) */
+        return &ESYNC_DESC[id == P_ATK ? 0 : id == P_DEC ? 1 : 2];
+    return &TP[id];
+}
+
+/* the descriptor of parameter id for engine e without the engine's desc hook (the device display
+ * only; range and default are the same): what the editor protocol, user presets and projects use */
+static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
+{
+    return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
+}
+
+/* a stored value as the parameter takes it (the sounds, the kits, the locks): inside d's range */
+static int32_t param_fit(const param_desc_t *d, int32_t v) { return clamp(v, d->min, d->max); }
+/* a value no knob stops on: the LFO DEST's DIST and CHO (their effects are gone; the numbers stay, stored sounds keep
+ * theirs) */
+static int enum_skip(const param_desc_t *d, int32_t v) { return d->names == N_MDST && (v == 6 || v == 7); }
+/* a knob moved an F_ENUM from `from` to v: past the values it skips in that direction (none left: back to from) */
+static int32_t enum_step(const param_desc_t *d, int32_t from, int32_t v)
+{
+    int32_t dir = v > from ? 1 : -1;
+    while (v != from && enum_skip(d, v))
+        v = v + dir > d->max || v + dir < d->min ? from : v + dir;
+    return v;
+}
+
+/* #48: the note divisions in the order of their length, longest first (triplets between their neighbours), on the
+ * knobs and the gauges; the stored values (N_DIV, N_SLDIV indices: projects, presets, the editor protocol) stay.
+ * -> the shown order of d's values (index: position, entry: value), 0 = the values' own order */
+static const uint8_t DIV_ORDER[10] = {9, 8, 7, 6, 0, 1, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4 1/8 8T 1/16 16T 1/32 */
+static const uint8_t SLDIV_ORDER[6] = {0, 3, 1, 4, 2, 5};              /* 1/8 8T 1/16 16T 1/32 32T */
+static const uint8_t DTIME_ORDER[13] = {9, 8, 7, 6, 12, 0, 10, 1, 11, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4D 1/4 1/8D
+                                                                                      * 1/8 1/16D 8T 1/16 16T 1/32 */
+/* SIMPLE: the LFO DEST knob's order: the knobs as their pages show them, left to right (OSC 1, OSC 2, AGE / GATE,
+ * FILTER, FILTER ENV, ENV, ENV DEST, LFO, LFO DEST, DELAY, VERB, COMB, DJ), then PITCH and AMP. Left out: PAN SHP
+ * DEPTH VEL TIME, E8 (MACH) and DIST CHO (a sound saved with one keeps it). The stored values (mod.c MD_*) stay */
+static const uint8_t MDST_ORDER[] = {0, 12, 13, 14, 15, 16, 17, 18, 69, 62, 63, 64, 65, 66, 67, 51, 52, 53, 6, 2, 40, 41, 42, 43, 44, 45, 23, 24, 25,
+                                     26, 61, 5, 10, 8, 34, 35, 36, 9, 37, 38, 39, 68, 46, 47, 48,
+                                     49, 50, 1, 4};   /* (the old ENV DEST / LFO DEST depths 27..33 and VIB: off their pages) */
+static int32_t mdst_rank(int32_t v)               /* v's place in MDST_ORDER (one left out: OFF's) */
+{
+    int32_t r;
+    for (r = 0; r < (int32_t)sizeof MDST_ORDER; r++)
+        if (MDST_ORDER[r] == v)
+            return r;
+    return 0;
+}
+/* does this DEST (a stored value, N_MDST's order) do anything on track t's machine? The knob skips the ones that don't;
+ * a saved sound holding one keeps it. Dead: a knob the machine hasn't ("-"), FM SYN's C.ATK .. DTUN off FM SYN, and on an
+ * 808 (ownenv, no filter) CUT RES F.* ATK DEC SUS REL */
+static int mdst_live(const track_t *t, int32_t v)
+{
+    uint32_t e = eng_idx(t->eng_req);
+    if (v == 6)                                     /* SCRUB: the sampler's */
+        return e == ENGI_SAMPLER;
+    if (e == ENGI_ANALOG && v >= 12 && v <= 18 && AN_TONE_K[t->p[P_E7] % AN_N] && (uint32_t)v - 12u == AN_TONE_K[t->p[P_E7] % AN_N])
+        return 0;                                   /* (a TONE the filter replaced) */
+    if (e == ENGI_ANALOG && v == 24)
+        return 0;                                   /* (an 808's DEC is its own knob, E1.. above) */
+    if (v >= 12 && v <= 18)                         /* E1..E7 */
+        return track_desc(t, P_E0 + (uint32_t)v - 12u)->label[0] != '-';
+    if (v == 69)                                    /* NOIS: FM HH / CYM's (P_LN3) */
+        return track_desc(t, P_LN3)->label[0] != '-';
+    if (v >= 51 && v <= 53)                         /* LEVEL / SAT, AGE / TYPE, GATE */
+        return track_desc(t, P_LN0 + (uint32_t)v - 51u)->label[0] != '-';
+    if (v >= 62 && v <= 67)
+        return e == ENGI_DIGITAL && t->p[P_E7] % 6 == 0;
+    if (v == 2 || (v >= 23 && v <= 26) || (v >= 40 && v <= 45)) {
+        if (v == 25 || v == 26)                     /* a drum's ENV: attack and decay only */
+            return track_desc(t, v == 25 ? P_SUS : P_REL)->label[0] != '-';
+    }
+    return 1;
+}
+static const uint8_t *enum_order(const param_desc_t *d)
+{
+    return d->names == N_DIV ? DIV_ORDER : d->names == N_SLDIV ? SLDIV_ORDER : d->names == N_DTIME ? DTIME_ORDER : 0;
+}
+static int32_t enum_rank(const param_desc_t *d, int32_t v)   /* v's place in the shown order (+ min): the gauges */
+{
+    const uint8_t *o = enum_order(d);
+    int32_t r;
+    if (FELUCCA_SIMPLE && d->names == N_MDST)       /* (the gauge over the shown order) */
+    {
+        int32_t k, r = mdst_rank(v), below = 0, all = 0;
+        for (k = 1; k < (int32_t)sizeof MDST_ORDER; k++)
+            if (mdst_live(TSEL, MDST_ORDER[k])) {
+                all++;
+                below += k <= r;
+            }
+        return d->min + below * (d->max - d->min) / (all ? all : 1);
+    }
+    for (r = 0; o && r < d->max - d->min; r++)
+        if (o[r] == v - d->min)
+            break;
+    return o ? r + d->min : v;
+}
+/* a knob turned `steps` (signed) from v: clamped, over the shown order, past aliases (enum_step) */
+static int32_t param_turn(const param_desc_t *d, int32_t v, int32_t steps)
+{
+    const uint8_t *o = enum_order(d);
+    if (FELUCCA_SIMPLE && d->names == N_MDST)
+    {
+        int32_t r = mdst_rank(v), dir = steps < 0 ? -1 : 1, left = steps < 0 ? -steps : steps, k;
+        for (k = r + dir; left && k >= 0 && k < (int32_t)sizeof MDST_ORDER; k += dir)
+            if (MDST_ORDER[k] == 0 || mdst_live(TSEL, MDST_ORDER[k])) {
+                r = k;
+                left--;
+            }
+        return MDST_ORDER[r];
+    }
+    if (o)
+        return o[clamp(enum_rank(d, v) - d->min + steps, 0, d->max - d->min)] + d->min;
+    if (d->names == ESYNC_NAMES) {                    /* ENV SYNC: a note value a step (the first value showing it) */
+        int32_t k = clamp((int32_t)esync_idx(v) + steps, 0, ESYNC_N - 1);
+        return (k * 128 + ESYNC_N - 1) / ESYNC_N;
+    }
+    return enum_step(d, v, clamp(v + steps, d->min, d->max));
+}
+
+static uint8_t fmt_named;        /* the last param_format was a name (F_ENUM, even "4"): ui_draw.c's digits do not roll it */
+
+/* value string (<= 5 chars) and unit for a parameter value */
+static void param_format(const param_desc_t *d, int32_t v, char *val, const char **unit)
+{
+    *unit = "";
+    fmt_named = d->fmt == F_ENUM;
+    switch (d->fmt) {
+    case F_PCT:                                     /* a 0..100 range (SWG) is its value, others a share of 127 */
+        fmt_int(val, d->max == 100 ? v : (v * 100 + 63) / 127);
+        *unit = "%";
+        break;
+    case F_BIPCT:                                   /* -64..63 as -100..+100 % (1.5.5, #199: each side over its own
+                                                     * range; up to 1.5.1 / 64 both ways, the top read +98) */
+        fmt_int(val, v * 100 / 64);
+        if (v > 0) {
+            char t[8];
+            fmt_int(t, v * 100 / 63);
+            val[0] = '+';
+            str_cpy(val + 1, t, 6);
+        }
+        *unit = "%";
+        break;
+    case F_TIME: {
+        uint32_t ms10 = TIME_MS_X10[v & 127];
+        if (d->names && v >= d->max) {              /* (FM SYN's C.DEC D.DEC: the top holds) */
+            str_cpy(val, d->names[0], 6);
+            break;
+        }
+        if (ms10 < 100u) {
+            fmt_fix(val, (int32_t)ms10, 1);
+            *unit = "ms";
+        } else if (ms10 < 10000u) {
+            fmt_int(val, (int32_t)((ms10 + 5u) / 10u));
+            *unit = "ms";
+        } else {
+            fmt_fix(val, (int32_t)(ms10 / 100u), 2);
+            if (ms10 >= 100000u)
+                fmt_fix(val, (int32_t)(ms10 / 1000u), 1);
+            *unit = "s";
+        }
+        break;
+    }
+    case F_LFOHZ: {
+        uint32_t h = LFO_HZ_X100[v & 127];
+        if (h < 1000u)
+            fmt_fix(val, (int32_t)h, 2);
+        else
+            fmt_fix(val, (int32_t)(h / 10u), 1);
+        *unit = "Hz";
+        break;
+    }
+    case F_CUTOFF: {
+        uint32_t h = CUTOFF_HZ[v & 127];
+        if (h < 1000u) {
+            fmt_int(val, (int32_t)h);
+            *unit = "Hz";
+        } else {
+            fmt_fix(val, (int32_t)(h / 100u), 1);
+            *unit = "kHz";
+        }
+        break;
+    }
+    case F_DB:
+        if (v <= 0) {
+            str_cpy(val, "OFF", 6);
+        } else {
+            fmt_fix(val, LEVEL_DB_X10[v], 1);
+            *unit = "dB";
+        }
+        break;
+    case F_SEMI:
+        fmt_int(val, v);
+        if (v > 0) {
+            char t[8];
+            fmt_int(t, v);
+            val[0] = '+';
+            str_cpy(val + 1, t, 6);
+        }
+        *unit = "st";
+        break;
+    case F_ENUM:
+        str_cpy(val, d->names[v < d->min ? d->min : v > d->max ? d->max : v], 6);
+        if (d->unit)
+            *unit = d->unit;
+        break;
+    case F_BPM:
+        fmt_int(val, v);
+        *unit = "BPM";
+        break;
+    case F_NOTE:
+        str_cpy(val, N_NOTE[v % 12], 6);
+        break;
+    case F_ONOFF:
+        str_cpy(val, N_ONOFF[v ? 1 : 0], 6);
+        break;
+    case F_STEPS:
+        fmt_int(val, v);
+        *unit = "STEP";
+        break;
+    default:
+        if (d->names) {                               /* F_INT with a 0-terminated name list: the range */
+            uint32_t k = 0;                           /* split evenly over the names (engine desc hooks) */
+            while (d->names[k])
+                k++;
+            str_cpy(val, d->names[(uint32_t)(clamp(v, d->min, d->max) - d->min) * k / (uint32_t)(d->max - d->min + 1)], 6);
+        } else {
+            fmt_int(val, v);
+        }
+        if (d->unit)
+            *unit = d->unit;
+        break;
+    }
+}
+
+/* ------------------------------------------------------------ pages --- */
+enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE, FAM_ARP, FAM_SEQ, FAM_TRK,
+       FAM_FLT,    /* the SCL button's pages: the engine's second sound page (FLT / TONE ..) and FILTER (ANALOG).
+                    * FAM_SCL has no pages of its own now (SCL and CHORD went to ARP); the SCL quick layer keeps it */
+       FAM_COUNT };
+enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };
+#define MIX_PAN 0x10u                          /* (a MIX page's id: the track's PAN, not its level) */   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
+enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
+       GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
+       GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS, GR_PERF, GR_GBSEQ, GR_ACID, GR_TREC };   /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
+
+/* SIMPLE: what each machine has on each OSC knob (Blair, 2026-11-07): knobs that work together stay together, FM SYN's amounts beside
+ * their envelopes. What lines up: PITCH / TUNE first, a synth's type second, on the 808s and FM drums OSC 2's drive and crush.
+ * By MACHINES' order. Only where a knob shows: ids, saves, locks stay */
+#define OK(n) (0xE0u + (n))
+#define E(n) (P_E0 + (n))
+#define X 0xFFu
+static const uint8_t OSC_KNOB[][16] = {
+    {E(0), E(2), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8BD */
+    {E(0), E(1), E(2), E(3), E(4), E(5), E(6), X, X, X, X, X, X, X, X, X}, /* FMBD */
+    {E(0), E(1), E(2), E(4), E(5), E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8SD */
+    {E(0), E(1), E(2), E(3), E(4), E(5), E(6), X, X, X, X, X, X, X, X, X}, /* FMSD */
+    {E(0), E(2), E(3), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8TOM */
+    {E(0), E(3), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8RIM */
+    {E(0), E(2), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8CLP */
+    {E(0), E(3), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8COW */
+    {E(0), E(3), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8HH */
+    {E(0), E(1), E(2), E(3), E(4), E(5), E(6), P_LN3, X, X, X, X, X, X, X, X}, /* FMHH */
+    {E(0), E(3), E(4), E(5), X, E(6), P_LN1, P_LN0, X, X, X, X, X, X, X, X}, /* 8CYM */
+    {E(0), E(1), E(2), E(3), E(4), E(5), E(6), P_LN3, X, X, X, X, X, X, X, X}, /* FMCYM */
+    {E(0), E(1), E(2), E(3), E(4), E(5), E(6), X, X, X, X, X, X, X, X, X}, /* FMPRC */
+    {P_TRANS, E(0), E(1), E(6), E(2), P_FM3_ATK, P_FM3_DEC, E(4), E(3), P_FM4_ATK, P_FM4_DEC, E(5), P_FM3_LEVEL, P_FM4_LEVEL, X, X}, /* FMSYN */
+    {P_TRANS, E(0), E(1), E(6), E(3), E(2), E(4), E(5), P_LN0, X, X, X, X, X, X, X}, /* MONO */
+    {P_TRANS, E(4), E(2), E(3), E(5), E(1), E(6), P_LN0, P_LN2, P_DIST, X, X, X, X, X, X}, /* SMPL */
+#if defined(TEENSY_NOR_ADDR)
+    {E(1), P_LN0, X, X, E(2), E(3), E(4), E(5), X, X, X, X, X, X, X, X}, /* INPUT (teensy-fm1 fork): GAIN SAT (no GATE:
+                                                                             * Blair); PLAYBACK PITCH STRCH LOFI MODE */
+#endif
+};
+#undef E
+#undef X
+_Static_assert(sizeof OSC_KNOB / sizeof OSC_KNOB[0] == NMACH, "a row for each machine");
+typedef struct {
+    const char *title;
+    uint8_t fam, scope, graph;
+    uint8_t id[4];               /* param ids; 0xFF = empty slot */
+    uint8_t fxt;                 /* SIMPLE: 1 the FX track's only (ui.c page_visible; a track's pages are never its), 2 its ALL side's */
+} page_t;
+
+/* SIMPLE: the groovebox's pages only (a family's go round in this order: ui.c open_family). EDIT button (FAM_EDIT)
+ * OSC 1 / OSC 2, SCL button (FAM_FLT) FILTER / FILTER ENV, ENV, LFO, FX button (FAM_FX) SENDS (the FX track: DELAY / VERB), GLO PERF /
+ * COMB, SEQ, HOME MIXER / CLOCK. No ARP, no SAVE pages (SAVE: ui_input.c gbsv_*) */
+static const page_t PAGES[] = {
+    {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
+    {"VOL PAN", FAM_ENV, SC_TRACK, GR_NONE, {P_LEVEL, P_PAN, 0xFF, 0xFF}},   /* the track's level, pan: lockable, LFO-able */
+    {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_M2DST, P_M2AMT, 0xFF, 0xFF}},   /* the envelope's DEST and AMT (matrix slot 2,
+                                                                                  * SRC ENV: ui_input.c msrc_fix; hold ENV too) */
+    {"LFO", FAM_LFO, SC_TRACK, GR_LFO, {P_LRATE, P_LWAVE, P_M1DST, P_M1AMT}},   /* .. the LFO's (slot 1, SRC LFO; hold LFO too) */
+    {"SYNC", FAM_LFO, SC_TRACK, GR_NONE, {P_LSYNC, P_LTRIG, P_LPOL, P_LFADE}},   /* (PHASE: on no page, 0; the old fixed
+                                                                                  * depths LFO DEST / ENV DEST too) */
+    {"SENDS", FAM_FX, SC_TRACK, GR_NONE, {P_DLY, P_REV, 0xFF, 0xFF}},   /* the track's sends (the effects: the FX track's) */
+    /* the FX track's (black key 7 / ALGO past 6): the delay, the reverb, two LFOs on the LFO button */
+    {"DELAY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, 0xFF}, 1},
+    {"VERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_RTYPE, G_DMIX}, 1},
+    {"LFO 1", FAM_LFO, SC_GLOBAL, GR_NONE, {G_F1RATE, G_F1WAVE, G_F1DEST, G_F1AMT}, 1},   /* (RATE: page_id_an, SYNC OFF the free one) */
+    {"SYNC 1", FAM_LFO, SC_GLOBAL, GR_NONE, {G_F1SYNC, G_F1TRIG, G_F1POL, G_F1FADE}, 1},
+    {"LFO 2", FAM_LFO, SC_GLOBAL, GR_NONE, {G_F2RATE, G_F2WAVE, G_F2DEST, G_F2AMT}, 1},
+    {"SYNC 2", FAM_LFO, SC_GLOBAL, GR_NONE, {G_F2SYNC, G_F2TRIG, G_F2POL, G_F2FADE}, 1},
+    {"OSC 1", FAM_EDIT, SC_ENGINE, GR_NONE, {OK(0), OK(1), OK(2), OK(3)}},       /* OSC_KNOB says what each machine has on each knob */
+    {"OSC 2", FAM_EDIT, SC_ENGINE, GR_NONE, {OK(4), OK(5), OK(6), OK(7)}},
+    {"OSC 3", FAM_EDIT, SC_ENGINE, GR_NONE, {OK(8), OK(9), OK(10), OK(11)}},
+    {"OSC 4", FAM_EDIT, SC_ENGINE, GR_NONE, {OK(12), OK(13), OK(14), OK(15)}},
+    {"FILTER", FAM_FLT, SC_TRACK, GR_NONE, {P_FLT_CUT, P_FLT_RES, P_FTYPE, P_FE_AMT}},    /* CUT RES TYPE AMT */
+    {"FILTER ENV", FAM_FLT, SC_TRACK, GR_NONE, {P_FE_ATK, P_FE_DEC, P_FE_SUS, P_FE_REL}}, /* ATK DEC SUS REL */
+    {"PERF", FAM_GLO, SC_GLOBAL, GR_PERF, {0xFF, 0xFF, 0xFF, 0xFF}, 1},        /* GLO: the performance macros (ui.c perf_*) */
+    {"COMB", FAM_GLO, SC_GLOBAL, GR_NONE, {G_SYNC, G_CRATE, G_CDEPTH, G_INFO}, 1},   /* the master comb: MIX TUNE FDBK DAMP (mfx.c) */
+    {"DJ", FAM_GLO, SC_GLOBAL, GR_NONE, {G_MIDI, 0xFF, 0xFF, 0xFF}, 1},             /* the DJ filter (a step locks it) */
+    {"AMP", FAM_GLO, SC_GLOBAL, GR_NONE, {G_AMP, G_PAN, 0xFF, 0xFF}, 1},            /* the whole mix's level (ducking, pulsing), pan */
+    {"SEQ", FAM_SEQ, SC_TRACK, GR_GBSEQ, {P_SLEN, P_SDIV, P_APROB, 0xFF}},
+    {"ARP", FAM_ARP, SC_TRACK, GR_NONE, {P_AHOLD, P_AMODE, P_ARATE, P_ASWING}},   /* ARP MODE RATE FADE (seq.c ARP_*) */   /* LEN SPEED CHANCE TRIG (ui_input.c gbseq_knob) */
+#if BOARD_SMK37
+    /* the Elite (Blair): four tracks a page, K1-K4 their PAN, faders 1-4 their VOL (main.c smk_faders); the third row is
+     * hidden (ui.c page_visible), so the pages after keep their places */
+    {"MIX 1-4", FAM_TRK, SC_TRK, GR_TRK, {MIX_PAN | 0, MIX_PAN | 1, MIX_PAN | 2, MIX_PAN | 3}},
+    {"MIX 5-6", FAM_TRK, SC_TRK, GR_TRK, {MIX_PAN | 4, MIX_PAN | 5, 0xFF, 0xFF}},
+    {"MIX", FAM_TRK, SC_TRK, GR_TRK, {0xFF, 0xFF, 0xFF, 0xFF}},
+#else
+    {"MIX 1-2", FAM_TRK, SC_TRK, GR_TRK, {0, MIX_PAN | 0, 1, MIX_PAN | 1}},   /* KNOB k: track id[k]'s level, + MIX_PAN its pan */
+    {"MIX 3-4", FAM_TRK, SC_TRK, GR_TRK, {2, MIX_PAN | 2, 3, MIX_PAN | 3}},
+    {"MIX 5-6", FAM_TRK, SC_TRK, GR_TRK, {4, MIX_PAN | 4, 5, MIX_PAN | 5}},
+#endif
+    {"CLOCK", FAM_TRK, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, 0xFF}},
+    /* ACID's (a track playing its ACID: in place of the SEQ page; black keys 8, 9 pick them): the stage picked (a white
+     * key): PITCH PULSE GATE OCT; the track's: LEN DIR SPD GATE (ui_input.c acid_knob, ui_gb.c's dials) */
+    {"STAGE", FAM_SEQ, SC_TRACK, GR_ACID, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"ACID", FAM_SEQ, SC_TRACK, GR_ACID, {0xFF, 0xFF, 0xFF, 0xFF}},
+    /* the FX track's too, ALL's (fxt 2: white, ui_gb.c): each knob an offset on every track (mod.c all_block) */
+    {"ALL OSC", FAM_EDIT, SC_GLOBAL, GR_NONE, {G_A_PIT, G_A_TYP, G_A_FM, G_A_DRV}, 2},
+    {"ALL OSC", FAM_EDIT, SC_GLOBAL, GR_NONE, {G_A_CRS, 0xFF, 0xFF, 0xFF}, 2},
+    {"ALL ENV", FAM_ENV, SC_GLOBAL, GR_NONE, {G_A_ATK, G_A_DEC, 0xFF, 0xFF}, 2},
+    {"ALL FILT", FAM_FLT, SC_GLOBAL, GR_NONE, {G_A_CUT, G_A_RES, G_A_FTP, G_A_AMT}, 2},
+    {"ALL F ENV", FAM_FLT, SC_GLOBAL, GR_NONE, {G_A_FAT, G_A_FDC, 0xFF, 0xFF}, 2},
+    {"ALL SEND", FAM_FX, SC_GLOBAL, GR_NONE, {G_A_DLY, G_A_REV, 0xFF, 0xFF}, 2},
+#if defined(TEENSY_NOR_ADDR)
+    /* teensy-fm1 fork: a track's FX button goes on SENDS -> REC -> REC IN (trec.c; last here, so no page moves) */
+    {"REC", FAM_FX, SC_TRACK, GR_TREC, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"REC IN", FAM_FX, SC_TRACK, GR_TREC, {0xFF, 0xFF, 0xFF, 0xFF}},
+#endif
+};
+#define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
+static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
+
+/* SIMPLE: no second sets any more (OCT+ held + a knob: the temporary change, ui_input.c mom_*); alt_mode stays 0 */
+static uint8_t alt_mode;
+static const uint8_t *alt_ids(const page_t *pg)
+{
+    (void)pg;
+    return 0;
+}
+/* SIMPLE: LEVEL and AGE (P_LN0, P_LN1) are no knob on a track of an engine without them; SAMPLER's AGE page is GATE.
+ * MONO's filter TYPE is P_LN1 (a blend, 0..127). PITCH (P_TRANS, semitones): the sampler's OSC 1 KNOB 1, FM SYN's OSC 2 KNOB 4 (where the 808s have LEVEL) */
+static uint32_t page_id_an(const page_t *pg, uint32_t id)
+{
+    if (pg->fxt == 1u && id == G_F1RATE && song.g[G_F1SYNC])   /* (an FX LFO, SYNC OFF: the free speed) */
+        return G_F1FREE;
+    if (pg->fxt == 1u && id == G_F2RATE && song.g[G_F2SYNC])
+        return G_F2FREE;
+    if (id >= OK(0) && id <= OK(15))
+        return OSC_KNOB[trk_mach(TSEL)][id - OK(0)];
+    if (FELUCCA_SIMPLE && id == P_DEC && pg->fam == FAM_ENV && eng_idx(TSEL->eng_req) == ENGI_ANALOG)
+        return P_E0 + AN_DEC_K[(uint32_t)TSEL->p[P_E7] % AN_N];   /* (an 808's DEC: the machine's own) */
+    if (FELUCCA_SIMPLE && id == P_FTYPE && flt_blend(TSEL))
+        return P_LN1;                                 /* (MONO's and FM SYN's filter: TYPE a blend, P_LN1) */
+    return id;
+}
+static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **valp)
+{
+    uint32_t id = page_id_an(pg, pg->id[slot]);
+    if (FELUCCA_SIMPLE && alt_mode && alt_ids(pg))
+        id = alt_ids(pg)[slot];
+    if (id == 0xFFu) {
+        *valp = 0;
+        return 0;
+    }
+    if (id & 0x80u) {                                 /* a global on a track page (FX: the delay's and reverb's TIME) */
+        *valp = &song.g[id & 0x7Fu];
+        return &GP[id & 0x7Fu];
+    }
+    if (pg->scope == SC_STEP || pg->scope == SC_TRK) {
+        *valp = 0;
+        return 0;
+    }
+    if (pg->scope == SC_GLOBAL) {
+        *valp = &song.g[id];
+        return &GP[id];
+    }
+    if (pg->graph == GR_MOD)                          /* SRC DST AMT of the slot shown */
+        id += 3u * mod_ui_slot;
+    *valp = &TSEL->p[id];
+    return track_desc(TSEL, id);
+}

@@ -1,0 +1,43 @@
+name: Test report
+description: Tell us how a port ran on your Mod Swapper
+title: "[Test] "
+labels: ["test report"]
+body:
+  - type: input
+    id: port
+    attributes:
+      label: Port and version
+      placeholder: e.g. SLOOP 2.8.5
+    validations:
+      required: true
+  - type: input
+    id: fm1
+    attributes:
+      label: Your FM-1
+      description: When you bought it, and anything that looks different from Blair's.
+  - type: dropdown
+    id: psram
+    attributes:
+      label: Your Teensy 4.1's PSRAM
+      options:
+        - None
+        - One chip
+        - Two chips
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall
+      options:
+        - Works
+        - Works with problems
+        - Doesn't work
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: What worked, what didn't
+      description: Sound, screen, keys, saves, samples. Photos or video help.

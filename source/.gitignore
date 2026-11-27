@@ -1,0 +1,12 @@
+# build output
+target/
+target-*/
+/roms/
+/teensy-fm1.hex
+# separate git clones (sources the ports were taken from; each port records its commit)
+/ports/_dl/
+# hugelton/Felucca upstream, cloned for reference (ports/felucca is the build's copy)
+/vendor/felucca-upstream/
+# other authors' firmware binaries: never bundled (the tools link to them)
+/host/firmwares/*.fwsc
+__pycache__/

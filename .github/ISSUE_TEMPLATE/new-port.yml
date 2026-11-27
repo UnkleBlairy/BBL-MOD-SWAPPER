@@ -1,0 +1,50 @@
+name: New port
+description: Post a firmware you ported to the BBL Mod Swapper
+title: "[Port] "
+labels: ["new port"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for porting! Fill this in and drag a zip into the last box. It gets added to the ports folder as UNCONFIRMED, with your name on it.
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware and version
+      placeholder: e.g. X0X 1.2.2
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Link to the original firmware
+      placeholder: https://github.com/...
+    validations:
+      required: true
+  - type: input
+    id: licence
+    attributes:
+      label: Its licence
+      placeholder: e.g. GPL-3.0, MIT
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: Your name for the credit
+    validations:
+      required: true
+  - type: textarea
+    id: tested
+    attributes:
+      label: What you tested
+      description: Your FM-1, your Teensy (PSRAM or not), what works and what doesn't.
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: Drag in one zip with NAME.R1, NAME.R2, NAME.R3 and your changed source (the ports/<name>/ folder, plus any build.rs / build.sh changes).
+    validations:
+      required: true

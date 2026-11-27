@@ -1,0 +1,10 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+# fm1link.x: our memory layout (build.rs)
+rustflags = ["-C", "link-arg=-Tfm1link.x"]
+
+[env]
+CC_thumbv7em_none_eabihf = "arm-none-eabi-gcc"
+AR_thumbv7em_none_eabihf = "arm-none-eabi-ar"

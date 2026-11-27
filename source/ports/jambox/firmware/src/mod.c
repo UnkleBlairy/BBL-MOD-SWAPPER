@@ -1,0 +1,684 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
+/* Modulation matrix: per track four slots, each SRC -> DST by AMT (-64..63), added to the fixed
+ * routings (ENV DEST, LFO DEST). Runs in the audio ISR (fx.c mix_part, voice.c track_render).
+ *
+ * Sources, Q15:
+ *   LFO   the track LFO with its FADE (as LFO DEST), bipolar; with LFO 2 POL UNI 0..1 (1.2)
+ *   ENV   the amp envelope of the voice (after the engine's own amp curve, as ENV DEST), 0..1
+ *   VEL   the note-on velocity (before UNISON's level scaling), 0..1
+ *   KEY   the note relative to C4, bipolar: +-64 semitones = +-1 (an octave = 0.19)
+ *   RAND  a new random value per note-on (its own generator: the shared rng is not touched), bipolar
+ *   MODW  MIDI CC1, AT channel aftertouch, EXPR CC11 of the track's channel (seq.c), 0..1; until a
+ *         controller arrives (and after CC121 RESET ALL CONTROLLERS) MODW and AT are 0, EXPR 1
+ *   S&H   (#132) a random value held for one cycle of the track LFO: the value LFO WAVE S&H steps through
+ *         (voice.c lfo_rand, drawn as each cycle starts, whatever the WAVE), without the LFO's FADE, POL or
+ *         DEPTH; bipolar, 0 until the LFO's first cycle ends. It follows RATE and SYNC (a step per note value)
+ *   SLEW  (#132) S&H slewed: it glides linearly from the cycle before's value to this cycle's over the cycle
+ *         (a smooth random line, one cycle behind S&H, continuous where S&H steps); bipolar
+ *   Both are per track (one value for every voice) and cost no state but the one value kept per cycle.
+ * Destinations:
+ *   per voice (vmod_t, like the fixed routings):
+ *     PITCH  AMT 63 at a full source = +-11.8 semitones (as LFO DEST PIT)
+ *     CUT    m->cutoff, SHP m->shape: AMT 63 = +-63 steps (as ENV DEST); the sums are clamped to what
+ *            the fixed routings can reach, so the engines see no new range
+ *     AMP    a gain <= 1: AMT > 0 the source opens it (AMT 64: silent at 0, full at 1), AMT < 0 closes it
+ *            (bipolar sources as 0..1, as LFO DEST AMP); several AMP slots multiply
+ *   per track, once per block: PAN, DIST CHO DLY REV (the sends), RATE (LFO rate), VIB (LFO DEST PIT, the
+ *     vibrato depth), E1..E8 (the engine's parameters P_E0..P_E7, named by the engine): AMT 64 at a full
+ *     source = the parameter's whole range; the sum is clamped to its range
+ *   DEPTH (#132, per track): the depth of the track LFO, a gain <= 1 on it as AMP is on the voice (AMT > 0 the source
+ *     opens it, AMT 64: none at 0, full at 1; AMT < 0 closes it; several DEPTH slots multiply): it scales the LFO
+ *     wherever it goes, the four LFO DEST routings and the matrix's LFO source (not S&H / SLEW). With RATE (the LFO's
+ *     rate) the matrix modulates the modulator: MODW -> DEPTH is a mod-wheel LFO, ENV -> DEPTH an LFO that
+ *     follows the note's envelope. A DEPTH slot whose source is the LFO takes it unscaled
+ * A per-voice source on a per-block destination takes the latest note-on's value (VEL, KEY, RAND), ENV the
+ * envelope of the latest note-on's voice (one block late, 0 when it has ended).
+ *   at a note (1.5.6, Discussion #213, humanizing; read once per note-on / step, never per block or sample):
+ *   VEL   the note-on velocity: AMT 64 at a full source = +-127 (the sum clamped to 1..127), before the note
+ *         starts, so the voice, the engine and the matrix's own VEL source all take the new one. Every note-on
+ *         (keys, MIDI, the sequencer, the arp); RAND is the note's own (a chord's notes each their own)
+ *   TIME  a sequencer step plays late: 0 .. 30 ms at AMT 64 of a full source (and never past 7/16 of the step, as
+ *         NUDGE). Bipolar sources as 0..1, AMT < 0 the other way round (as AMP reads them); a step's VEL and KEY
+ *         are its own (its first note), RAND a new value per step. Late only (early would need the step before
+ *         to know). A step plays on time with a ratchet, as a NUDGE does; the step's own NUDGE adds to it
+ *   Both cost nothing while no slot has them; mod_begin skips them
+ *
+ * Per-block destinations are modulated in place: mod_begin writes the modulated values into t->p for the
+ * part's block (its render and its mix in fx.c mix_part) and mod_end puts the stored values back. Both run
+ * in the audio ISR, so nothing outside it ever sees a modulated value (the UI, the editor, projects and
+ * presets read and write t->p from the main loop, which the ISR preempts; TIMER5 only fills the MIDI rings),
+ * and the engines read t->p as before. An engine reads its parameters in note_on (events_block) unmodulated.
+ * Nothing active (every slot with SRC, DST or AMT at 0): no work, and the sound is bit-identical. */
+enum { MS_OFF, MS_LFO, MS_ENV, MS_VEL, MS_KEY, MS_RAND, MS_MODW, MS_AT, MS_EXPR, MS_SH, MS_SLEW, MS_FENV, MS_N };
+enum { MD_OFF, MD_PITCH, MD_CUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE, MD_VIB, MD_E1,
+       MD_DEPTH = MD_E1 + 8, MD_VEL, MD_TIME, MD_X0, MD_N = MD_X0 + 47 };   /* (append-only: the stored values keep their meaning) */
+/* SIMPLE: MD_X0 and up, every other knob that moves smoothly, per block (AMT 64 = the whole range, as E1..E8): a track
+ * parameter, or 0x80 | a global (the delay, the reverb, the comb, the DJ filter: one for every track, the tracks'
+ * offsets add up, fx.c mod_g_begin). Not the knobs that switch (TYPE WAVE DEST MACH SYNC TRIG) */
+static const uint8_t MDX[MD_N - MD_X0] = {P_ATK, P_DEC, P_SUS, P_REL, P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ED_FX, P_LD_FLT,
+    P_LD_SHP, P_LD_AMP, 0x80 | G_DTIME, 0x80 | G_DFDBK, 0x80 | G_DCOLOR, 0x80 | G_RSIZE, 0x80 | G_RDAMP, 0x80 | G_RTYPE,
+    P_FLT_RES, P_FE_AMT, P_FE_ATK, P_FE_DEC, P_FE_SUS, P_FE_REL, 0x80 | G_SYNC, 0x80 | G_CRATE, 0x80 | G_CDEPTH,
+    0x80 | G_INFO, 0x80 | G_MIDI, P_LN0, P_LN1, P_LN2,
+    P_FTYPE, P_LWAVE, P_LPHASE, P_LFADE, P_LSYNC, P_LTRIG, P_LPOL, P_LEVEL,
+    P_FM3_ATK, P_FM3_DEC, P_FM4_ATK, P_FM4_DEC, P_FM3_LEVEL, P_FM4_LEVEL, 0x80 | G_DMIX, P_LN3};   /* (P_LN3: FM HH / CYM NOIS) */   /* (FM SYN's C.ATK .. DTUN) */   /* (touch modulation: knobs that step, stepping) */
+#define MD_GLOBAL(d) ((d) >= MD_X0 && (d) < MD_N && (MDX[(d) - MD_X0] & 0x80u))
+_Static_assert(NELEM(N_MSRC) == MS_N && NELEM(N_MDST) == MD_N, "N_MSRC / N_MDST == MS_* / MD_*");
+_Static_assert(P_M2SRC == P_M1SRC + 3 && P_M4AMT == P_M1SRC + 11 && P_M4AMT + 1 == P_FM1_ATK, "matrix slots: 3 ids each");
+#define NMSLOT 4u
+#define MS_VOICE(s) ((s) >= MS_ENV && (s) <= MS_RAND)             /* a value per voice */
+#define MS_BIPOLAR(s) ((s) == MS_LFO || (s) == MS_KEY || (s) == MS_RAND || (s) == MS_SH || (s) == MS_SLEW)
+#define MD_ENGINE(d) ((d) >= MD_E1 && (d) < MD_E1 + 8)           /* E1..E8: P_E0..P_E7 */
+
+/* the track parameter of a per-block destination */
+static uint32_t mod_param(uint32_t d)
+{
+    static const uint8_t ID[MD_E1] = {[MD_PAN] = P_PAN, [MD_DIST] = P_DIST, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
+                                      [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
+    return d >= MD_X0 ? MDX[(d - MD_X0) % (MD_N - MD_X0)] : MD_ENGINE(d) ? P_E0 + d - MD_E1 : ID[d];
+}
+
+#define MOD_NK (NMSLOT + 16u)    /* (the slots, and ALL's knobs: mod_begin) */
+typedef struct {                 /* a part's, while mix_part renders it (one per part: two cores render at once, fx.c mix_block) */
+    uint8_t on;                  /* a slot is active: track_render calls mod_voice */
+    uint8_t amp;                 /* an AMP slot: the voice gain applies */
+    uint8_t nv, nk;              /* voice terms, per-block parameters held */
+    int32_t pit, cut, shp, gain; /* per voice, from the per-track sources (gain Q15) */
+    int32_t ldep;                /* DEPTH: the track LFO's gain (Q15; 32767 = none, track_render leaves it alone) */
+    uint8_t vsrc[NMSLOT], vdst[NMSLOT];
+    int16_t vamt[NMSLOT];    /* (Q8: smooth.c) */
+    uint8_t kid[MOD_NK];         /* per-block: the parameter, its stored value */
+    int16_t keep[MOD_NK];
+    int32_t off8[MOD_NK];        /* .. the modulation's offset, Q8 (smooth.c: the sound takes it unrounded) */
+} modw_t;
+#if FELUCCA_CPU2
+static modw_t mod_w[NTRK];
+#define MOD(t) (mod_w[C1_PI(t)])
+#else
+static modw_t mod;               /* (one core: the one of 1.6, the same code) */
+#define MOD(t) mod
+#endif
+#define MOD_W_CLEAR() memset(&MOD(&trk[0]), 0, C1_NP * sizeof(modw_t))   /* (the host tests: every part's) */
+
+static uint32_t mod_seed = 0x2545F491u;
+static int16_t mod_rand(void)    /* RAND of a note-on: xorshift32, bipolar */
+{
+    mod_seed ^= mod_seed << 13;
+    mod_seed ^= mod_seed >> 17;
+    mod_seed ^= mod_seed << 5;
+    return (int16_t)(mod_seed >> 16);
+}
+
+static int32_t mod_key(uint32_t note) { return clamp(((int32_t)note - 60) * 512, -32767, 32767); }
+
+/* S&H: the value of the LFO's cycle (voice.c lfo_rand; 0 before its first one ends), bipolar */
+static int32_t mod_sh(const track_t *t) { return t->lfo_rnd ? (int32_t)(t->lfo_rnd >> 16) - 32768 : 0; }
+
+/* source s of the track: the per-track ones, the per-voice ones of the latest note-on */
+static int32_t mod_tsrc(const track_t *t, uint32_t s, int32_t lfo)
+{
+    switch (s) {
+    case MS_SH:
+        return mod_sh(t);
+    case MS_SLEW:                                       /* the cycle before's value .. this one's, by the phase */
+        return t->lfo_prev + (((mod_sh(t) - t->lfo_prev) * (int32_t)(t->lfo_ph >> 17)) >> 15);
+    case MS_LFO:
+        return lfo;
+    case MS_ENV:
+        return t->m_env;
+    case MS_FENV:                                       /* (an 808 has no filter envelope) */
+        return t->engine == ENGI_ANALOG ? 0 : t->m_fenv;
+    case MS_VEL:
+        return t->m_vel * 258;
+    case MS_KEY:
+        return mod_key(t->m_key);
+    case MS_RAND:
+        return t->m_rnd;
+    case MS_MODW:
+        return t->mw * 258;
+    case MS_AT:
+        return t->at * 258;
+    default:
+        return (127 - t->ex_off) * 258;
+    }
+}
+
+/* AMP: the gain (Q15, 0..32767) of source x (bipolar: as 0..1) at amount a */
+static int32_t mod_gain(uint32_t s, int32_t x, int32_t a8)   /* (a8: the AMT, Q8: smooth.c) */
+{
+    int32_t u = MS_BIPOLAR(s) ? (x + 32768) >> 1 : x;
+    return clamp(32767 - (a8 > 0 ? ((32767 - u) * a8) >> 14 : (u * -a8) >> 14), 0, 32767);
+}
+
+/* a per-voice destination d by source value x, amount a */
+static void mod_voice_add(uint32_t s, uint32_t d, int32_t x, int32_t a8, int32_t *pit, int32_t *cut, int32_t *shp,
+                          int32_t *gain)                /* (a8: the AMT, Q8: smooth.c) */
+{
+    if (d == MD_PITCH)
+        *pit += (int32_t)(((int64_t)x * a8 * 3) >> 23);
+    else if (d == MD_CUT)
+        *cut += (x * a8) >> 15;
+    else if (d == MD_SHP)
+        *shp += (x * a8) >> 15;
+    else
+        *gain = mulq15(*gain, mod_gain(s, x, a8));
+}
+
+/* DEPTH: the track LFO's gain (Q15) from the DEPTH slots, 32767 = none (lfo: the LFO unscaled; a per-voice source
+ * takes the latest note's value, as on the other per-block destinations). Its own function: mod_begin's loop stays
+ * what it was */
+static __attribute__((noinline)) int32_t mod_depth(const track_t *t, int32_t lfo)
+{
+    const int16_t *p = t->p;
+    int32_t g = 32767;
+    uint32_t k;
+    for (k = 0; k < NMSLOT; k++) {
+        uint32_t s = (uint32_t)p[P_M1SRC + 3u * k];
+        if (p[P_M1DST + 3u * k] == MD_DEPTH && p[P_M1AMT + 3u * k] && s && s < MS_N)
+            g = mulq15(g, mod_gain(s == MS_LFO && p[P_LPOL] ? MS_ENV : s, mod_tsrc(t, s, lfo), smq(t, SK_A1 + k)));
+    }
+    return g;
+}
+
+/* before a part's block (fx.c mix_part): the per-track offsets, the per-block destinations into t->p.
+ * 0 = no slot active (then nothing changed) */
+/* SIMPLE, ALL (the FX track's white pages): G_A_* add the same offset to every track's knob, so the tracks keep
+ * their own values and differences. Laid on and taken off as the slots are (mod_end): nothing saved sees them. A track
+ * in G_A_OUT is left alone. all_now: the values with the FX lane's locks and the FX LFOs on (they are laid over only after
+ * the tracks have played, mod_g_begin: so a block late). PITCH is in semitones (voice.c), the rest: 64 = the whole range */
+#define NALL (G_A_REV - G_A_PIT + 1u)
+static uint8_t fxl_sel;                                 /* the FX track is selected (ui.c) */
+static int32_t all_now[NALL];   /* (Q8: smooth.c's values, as they glide; PITCH semitones Q8) */
+/* PITCH (P_TRANS, a track's) and ALL's PITCH ([NTRK]) between whole semitones, Q8 above the stored value: what the crossfader
+ * / the Elite's faders (ui.c xf_poll) and a macro gliding back (pm_rl_step) have between two semitones, so pitch moved by
+ * them glides (Blair). A knob's turn stays in semitones. Each writer redoes all of its own each pass */
+static uint8_t pit_xf[NTRK + 1], pit_rl[NTRK + 1];
+static uint8_t all_any, all_out;                        /* an offset is on; the tracks left out */
+#define ALL_IN(t) (all_any && !((all_out >> ((uint32_t)((t) - trk) % NTRK)) & 1u))
+/* the knobs that differ by machine (MACHINES' order, as params.c OSC_KNOB): TYPE, FM (two on FM SYN), DRIVE, CRUSH */
+#define E(n) (P_E0 + (n))
+#define X 0xFFu
+#define A808 {X, X, X, E(6), P_LN1}
+#define AFMD(fm) {X, fm, X, E(5), E(6)}
+static const uint8_t ALL_MAP[][5] = {
+    A808, AFMD(E(3)), A808, AFMD(X), A808, A808, A808, A808, A808, AFMD(E(1)), A808, AFMD(E(1)), AFMD(E(2)),
+    {E(0), E(4), E(5), P_FM3_LEVEL, X},                 /* FMSYN: ALG, C.AMT + D.AMT, FB */
+    {E(0), X, X, P_LN0, X},                             /* MONO: WAVE, -, SAT */
+    {E(4), X, X, X, E(6)},                              /* SMPL: MODE, LOFI */
+#if defined(TEENSY_NOR_ADDR)
+    {X, X, X, P_LN0, X},                                /* INPUT (teensy-fm1 fork): SAT */
+#endif
+};
+#undef A808
+#undef AFMD
+#undef E
+#undef X
+_Static_assert(sizeof ALL_MAP / sizeof ALL_MAP[0] == NMACH, "a row for each machine");
+static const param_desc_t *mod_pd(const track_t *t, uint32_t id)   /* a parameter's range (FM's by machine: its knobs differ) */
+{
+    if (id < P_E0)
+        return &TP[id];
+    if (ENGINES[t->engine] == &ENG_DIGITAL && digital_desc(t, id - P_E0))
+        return digital_desc(t, id - P_E0);
+    return &ENGINES[t->engine]->edit[id - P_E0];
+}
+static void all_add(const track_t *t, modw_t *mw, int32_t *off, uint32_t id, int32_t a)
+{
+    const param_desc_t *pd;
+    uint32_t j;
+    if (!a || id == 0xFFu)
+        return;
+    pd = mod_pd(t, id);
+    for (j = 0; j < mw->nk && mw->kid[j] != id; j++)
+        ;
+    if (j == mw->nk) {
+        mw->kid[j] = (uint8_t)id;
+        mw->keep[j] = t->p[id];
+        off[j] = 0;
+        mw->nk++;
+    }
+    off[j] += a * (pd->max - pd->min) / 64;                /* (a: Q8, so off is) */
+}
+static void all_block(const track_t *t, modw_t *mw, int32_t *off)
+{
+    const uint8_t *m = ALL_MAP[trk_mach(t)];
+    #define AN(g) all_now[(g) - G_A_PIT]
+    all_add(t, mw, off, m[0], AN(G_A_TYP));
+    all_add(t, mw, off, m[1], AN(G_A_FM));
+    all_add(t, mw, off, m[2], AN(G_A_FM));
+    all_add(t, mw, off, m[3], AN(G_A_DRV));
+    all_add(t, mw, off, m[4], AN(G_A_CRS));
+    all_add(t, mw, off, P_ATK, AN(G_A_ATK));
+    all_add(t, mw, off, eng_idx(t->eng_req) == ENGI_ANALOG ? P_E0 + AN_DEC_K[(uint32_t)t->p[P_E7] % AN_N] : P_DEC, AN(G_A_DEC));
+    all_add(t, mw, off, P_FLT_CUT, AN(G_A_CUT));
+    all_add(t, mw, off, P_FLT_RES, AN(G_A_RES));
+    all_add(t, mw, off, flt_blend(t) ? P_LN1 : P_FTYPE, AN(G_A_FTP));
+    all_add(t, mw, off, P_FE_AMT, AN(G_A_AMT));
+    all_add(t, mw, off, P_FE_ATK, AN(G_A_FAT));
+    all_add(t, mw, off, P_FE_DEC, AN(G_A_FDC));
+    all_add(t, mw, off, P_DLY, AN(G_A_DLY));
+    all_add(t, mw, off, P_REV, AN(G_A_REV));
+    #undef AN
+}
+
+static __attribute__((noinline)) int mod_begin(track_t *t)
+{
+    const int16_t *p = t->p;
+    int32_t lfo, off[MOD_NK];
+    uint32_t k, j;
+    modw_t *mw = &MOD(t);
+    mw->on = 0;
+    for (k = 0; k < NMSLOT; k++)                        /* (VEL and TIME: at the notes, not here) */
+        if (p[P_M1SRC + 3u * k] && p[P_M1DST + 3u * k] && p[P_M1AMT + 3u * k] &&
+            (p[P_M1DST + 3u * k] < MD_VEL || (p[P_M1DST + 3u * k] >= MD_X0 && !MD_GLOBAL(p[P_M1DST + 3u * k]))))
+            break;
+    if (k == NMSLOT && !ALL_IN(t))
+        return 0;
+    lfo = mulq15(t->lfo_val, t->lfo_fade);              /* (the LFO of the block before: track_render ticks it) */
+    mw->on = 1;
+    mw->amp = 0;
+    mw->nv = mw->nk = 0;
+    mw->pit = mw->cut = mw->shp = 0;
+    mw->gain = 32767;
+    mw->ldep = mod_depth(t, lfo);                       /* DEPTH first: the other slots see the LFO it leaves */
+    if (mw->ldep < 32767)
+        lfo = mulq15(lfo, mw->ldep);
+    for (; k < NMSLOT; k++) {
+        uint32_t s = (uint32_t)p[P_M1SRC + 3u * k], d = (uint32_t)p[P_M1DST + 3u * k];
+        int32_t a = p[P_M1AMT + 3u * k], x;
+        if (!s || !d || !a || s >= MS_N || (d >= MD_DEPTH && d < MD_X0) || d >= MD_N || MD_GLOBAL(d))
+            continue;
+        if (d <= MD_AMP) {                              /* per voice */
+            mw->amp |= d == MD_AMP;
+            if (MS_VOICE(s)) {
+                mw->vsrc[mw->nv] = (uint8_t)s;
+                mw->vdst[mw->nv] = (uint8_t)d;
+                mw->vamt[mw->nv++] = (int16_t)smq(t, SK_A1 + k);
+            } else {                                    /* (a UNI LFO, 0..1, takes AMP as ENV does) */
+                mod_voice_add(s == MS_LFO && p[P_LPOL] ? MS_ENV : s, d, mod_tsrc(t, s, lfo), smq(t, SK_A1 + k), &mw->pit, &mw->cut,
+                              &mw->shp, &mw->gain);
+            }
+            continue;
+        }
+        {                                               /* per block: AMT 64 = the whole range */
+            uint32_t id = mod_param(d);
+            const param_desc_t *pd = id >= P_E0 ? &ENGINES[t->engine]->edit[id - P_E0] : &TP[id];
+            x = mod_tsrc(t, s, lfo);
+            for (j = 0; j < mw->nk && mw->kid[j] != id; j++)
+                ;
+            if (j == mw->nk) {
+                mw->kid[j] = (uint8_t)id;
+                mw->keep[j] = p[id];
+                off[j] = 0;
+                mw->nk++;
+            }
+            off[j] += (((x * smq(t, SK_A1 + k)) >> 14) * (pd->max - pd->min)) >> 7;   /* (Q8: smooth.c takes it whole; AMT gliding too) */
+        }
+    }
+    if (ALL_IN(t))
+        all_block(t, mw, off);
+    for (j = 0; j < mw->nk; j++) {
+        uint32_t id = mw->kid[j];
+        const param_desc_t *pd = mod_pd(t, id);
+        mw->off8[j] = clamp(mw->keep[j] * 256 + off[j], pd->min * 256, pd->max * 256) - mw->keep[j] * 256;   /* (in range) */
+        t->p[id] = (int16_t)clamp(mw->keep[j] + ((off[j] + 128) >> 8), pd->min, pd->max);
+    }
+    return 1;
+}
+
+/* SIMPLE: the globals the tracks' slots move (MD_GLOBAL), around the master's block (fx.c mix_block): each track's
+ * offset of its own sources (as mod_begin), added up; the values as they were go back after (mod_g_end), so nothing
+ * outside the audio ISR sees them. The reverb's FDBK stays short of its hold unless it is there */
+#define MG_N 48u
+static uint8_t mg_n, mg_id[MG_N];
+static int16_t mg_keep[MG_N], mg_base[MG_N];
+static uint8_t mg_ov_n, mg_ov_g[MG_N];                  /* SIMPLE: values laid over globals (seq.c, the FX lane's locks) */
+static int16_t mg_ov_v[MG_N];
+static uint32_t mg_slot(uint32_t g, int32_t *off)       /* global g's place in mg_* (a new one from its value), MG_N full */
+{
+    uint32_t j;
+    for (j = 0; j < mg_n && mg_id[j] != g; j++)
+        ;
+    if (j == mg_n) {
+        if (mg_n == MG_N)
+            return MG_N;
+        mg_id[j] = (uint8_t)g;
+        mg_keep[j] = mg_base[j] = song.g[g];
+        off[j] = 0;
+        mg_n++;
+    }
+    return j;
+}
+
+/* SIMPLE: the FX track's three LFOs (params.c N_FX*): in time from PLAY (seq.c: fxlfo_reset), running on when stopped.
+ * Each moves its DEST's global from the knob's value as a track's slot does (0..1 waves; AMT 64 the whole range, < 0
+ * down), D.SND / R.SND every track's delay / reverb sends, D.OUT / R.OUT the echoes / the reverb's sound (fx.c fxs_gain:
+ * 1 .. 0, AMT < 0 ducks them) */
+static const uint8_t FXL_ID[3][4] = {{G_F1RATE, G_F1WAVE, G_F1DEST, G_F1AMT}, {G_F2RATE, G_F2WAVE, G_F2DEST, G_F2AMT},
+                                     {G_F3RATE, G_F3WAVE, G_F3DEST, G_F3AMT}};   /* RATE WAVE DEST AMT */
+static const uint8_t FXD_G[NELEM(N_FXDST)] = {0xFFu, G_AMP, G_MIDI, G_SYNC, G_CRATE, G_CDEPTH, G_INFO, G_DTIME, G_DFDBK,
+                                              G_DCOLOR, G_RSIZE, G_RDAMP, G_RTYPE, 0xFFu, 0xFFu, 0xFFu, 0xFFu, G_PAN, G_DMIX,
+                                              G_A_PIT, G_A_TYP, G_A_FM, G_A_DRV, G_A_CRS, G_A_ATK, G_A_DEC, G_A_CUT, G_A_RES,
+                                              G_A_FTP, G_A_AMT, G_A_FAT, G_A_FDC, G_A_DLY, G_A_REV};
+#define NFXL 2u                                         /* (G_F3*: an old save's third LFO, not played) */
+static const uint8_t FXL_SET[NFXL][5] = {{G_F1SYNC, G_F1TRIG, G_F1POL, G_F1FADE, G_F1FREE},
+                                         {G_F2SYNC, G_F2TRIG, G_F2POL, G_F2FADE, G_F2FREE}};   /* SYNC TRIG POL FADE, free RATE */
+static struct { uint32_t ph, rnd; int32_t fade; } fxlfo[NFXL];
+static uint32_t fxlfo_seed = 0x6C8E9CF5u;
+static int32_t fxs_gain[4] = {32767, 32767, 32767, 32767};   /* this block's: the delay's sends, the reverb's, the
+                                                                 * delay's output, the reverb's (Q15) */
+static void fxlfo_reset(void)
+{
+    fxlfo[0].ph = fxlfo[1].ph = 0;
+    fxlfo[0].fade = fxlfo[1].fade = 0;                  /* (FADE: in again from here) */
+}
+static void fxlfo_trig(void)                            /* an FX lane trig: the LFOs set to TRIG start again (seq.c) */
+{
+    uint32_t k;
+    for (k = 0; k < NFXL; k++)
+        if (song.g[FXL_SET[k][1]]) {
+            fxlfo[k].ph = 0;
+            fxlfo[k].rnd = 0;                           /* (S&H: a new value) */
+            fxlfo[k].fade = 0;
+        }
+}
+static uint32_t div_samples(uint32_t div);              /* (fx.c) */
+static int32_t fxlfo_block(uint32_t k, uint32_t n)      /* LFO k a block of n on: its value, 0..32767 */
+{
+    uint32_t old = fxlfo[k].ph, ph;
+    if (song.g[FXL_SET[k][0]]) {                        /* SYNC OFF: as a track's free LFO */
+        ph = old + SM_TABL(LFO_INC, smg(SKG_F1FREE + k));   /* (smooth.c) */
+    } else {
+        uint32_t cyc = div_samples(LSYNC_DIV[1u + (uint32_t)song.g[FXL_ID[k][0]] % NELEM(N_FXRATE)]), q, r;
+        cyc = cyc ? cyc : 1u;
+        q = 0xFFFFFFFFu / cyc;
+        r = 0xFFFFFFFFu % cyc;
+        ph = old + q * n + (r * n + n) / cyc;
+    }
+    fxlfo[k].ph = ph;
+    if (ph < old || !fxlfo[k].rnd) {                    /* a new cycle: S&H's next value */
+        fxlfo_seed ^= fxlfo_seed << 13;
+        fxlfo_seed ^= fxlfo_seed >> 17;
+        fxlfo_seed ^= fxlfo_seed << 5;
+        fxlfo[k].rnd = fxlfo_seed | 1u;
+    }
+    switch (song.g[FXL_ID[k][1]]) {
+    case 1:                                             /* TRI */
+        return (int32_t)((ph < 0x80000000u ? ph : ~ph) >> 16);
+    case 2:                                             /* UP */
+        return (int32_t)(ph >> 17);
+    case 3:                                             /* DOWN */
+        return 32767 - (int32_t)(ph >> 17);
+    case 4:                                             /* SQR */
+        return ph < 0x80000000u ? 32767 : 0;
+    case 5:                                             /* S&H */
+        return (int32_t)(fxlfo[k].rnd >> 17);
+    default:                                            /* SIN: from 0 (1 - cos) / 2 */
+        return (32767 + osc_sine(ph - 0x40000000u)) >> 1;
+    }
+}
+
+static int32_t fxlfo_val(uint32_t k, uint32_t n)        /* .. with POL and FADE: UNI 0..32767, BI -32767..32767 */
+{
+    int32_t v = fxlfo_block(k, n), f = song.g[FXL_SET[k][3]];
+    if (song.g[FXL_SET[k][2]])
+        v = 2 * v - 32767;
+    if (fxlfo[k].fade < 32767) {
+        int32_t step = (int32_t)(ENV_LIN[f & 127] >> 9);
+        fxlfo[k].fade = f ? clamp(fxlfo[k].fade + (step ? step : 1), 0, 32767) : 32767;
+    }
+    return fxlfo[k].fade < 32767 ? mulq15(v, fxlfo[k].fade) : v;
+}
+
+/* smooth.c, the globals' block (in mod_g_begin, off: mg_*'s offsets, Q8): each from its stored value (or the FX lane's
+ * lock on it) gliding, the LFOs' offsets on top. The reverb's FDBK stays short of HOLD unless it is there */
+static void sm_glob(const int32_t *off, uint32_t nb)
+{
+    uint32_t i, j;
+    for (i = 0; i < SKG_N; i++) {
+        uint32_t g = SM_GID[i];
+        int32_t base = song.g[g], o = 0;
+        for (j = 0; j < mg_n && mg_id[j] != g; j++)
+            ;
+        if (j < mg_n) {
+            base = mg_base[j];
+            o = off[j];
+        }
+        sm_step(&sm_gl[i], base, o, nb);
+        if (o) {
+            int32_t mx = g == G_RDAMP && base < GP[g].max ? GP[g].max - 1 : GP[g].max;
+            sm_gl[i].out = clamp(sm_gl[i].out, GP[g].min * 256, mx * 256);
+        }
+    }
+    sm_ready = 1;
+}
+
+/* smooth.c, track t's block (fx.c mix_part, after mod_begin: t->p holds the modulated values, MOD(t) the stored ones and
+ * the offsets) */
+static AUDIO_RAM void sm_track(track_t *t, uint32_t nb)
+{
+    const modw_t *mw = &MOD(t);
+    sm_s *s = sm_tr[(uint32_t)(t - trk) % NTRK];
+    int32_t off[SK_NT];
+    int16_t base[SK_NT];
+    uint32_t i;
+    for (i = 0; i < SK_NT; i++) {
+        base[i] = t->p[SM_TID[i]];
+        off[i] = 0;
+    }
+    if (mw->on)
+        for (i = 0; i < mw->nk; i++) {
+            uint32_t k = sm_tslot[mw->kid[i]];
+            if (k) {
+                base[k - 1u] = mw->keep[i];
+                off[k - 1u] = mw->off8[i];
+            }
+        }
+    for (i = 0; i < SK_NT; i++)
+        sm_step(&s[i], base[i], off[i], nb);           /* (off: kept in the knob's range by mod_begin) */
+}
+
+static __attribute__((noinline)) void mod_g_begin(uint32_t nb)
+{
+    int32_t off[MG_N];
+    uint32_t i, k, j;
+    mg_n = 0;
+    for (j = 0; j < mg_ov_n && j < MG_N; j++) {         /* the overlay first: the LFOs move from it */
+        mg_id[j] = mg_ov_g[j];
+        mg_keep[j] = song.g[mg_ov_g[j]];
+        mg_base[j] = mg_ov_v[j];
+        off[j] = 0;
+        mg_n++;
+    }
+    fxs_gain[0] = fxs_gain[1] = fxs_gain[2] = fxs_gain[3] = 32767;
+    for (k = 0; k < NFXL; k++) {                        /* the FX track's LFOs */
+        int32_t v = fxlfo_val(k, nb), a;
+        uint32_t d = (uint32_t)song.g[FXL_ID[k][2]], g;
+        for (j = 0; j < mg_n && mg_id[j] != FXL_ID[k][3]; j++)
+            ;
+        a = j < mg_n ? mg_base[j] : song.g[FXL_ID[k][3]];   /* (its AMT locked on the FX lane: that) */
+        if (!d || !a || d >= NELEM(FXD_G))
+            continue;
+        if (d >= FXD_DSND && d < FXD_DSND + 4u) {       /* D.SND R.SND D.OUT R.OUT */
+            int32_t *gp = &fxs_gain[(d - FXD_DSND) & 3u];
+            *gp = clamp(*gp + ((v * a) >> 6), 0, 32767);
+            continue;
+        }
+        g = FXD_G[d];
+        if ((j = mg_slot(g, off)) < MG_N)
+            off[j] += (((v * a) >> 6) * (GP[g].max - GP[g].min)) >> 7;   /* (Q8) */
+    }
+    for (i = 0; i < NTRK; i++) {
+        const track_t *t = &trk[i];
+        const int16_t *p = t->p;
+        int32_t lfo = 0, have = 0;
+        for (k = 0; k < NMSLOT; k++) {
+            uint32_t s = (uint32_t)p[P_M1SRC + 3u * k], d = (uint32_t)p[P_M1DST + 3u * k], g;
+            int32_t a = p[P_M1AMT + 3u * k];
+            if (!s || !a || s >= MS_N || !MD_GLOBAL(d))
+                continue;
+            if (!have) {
+                int32_t dg;
+                lfo = mulq15(t->lfo_val, t->lfo_fade);
+                dg = mod_depth(t, lfo);
+                if (dg < 32767)
+                    lfo = mulq15(lfo, dg);
+                have = 1;
+            }
+            g = MDX[d - MD_X0] & 0x7Fu;
+            if ((j = mg_slot(g, off)) < MG_N)
+                off[j] += (((mod_tsrc(t, s, lfo) * smq(t, SK_A1 + k)) >> 14) * (GP[g].max - GP[g].min)) >> 7;   /* (Q8; AMT smooth.c's) */
+        }
+    }
+    for (j = 0; j < mg_n; j++) {
+        uint32_t g = mg_id[j];
+        int32_t mx = g == G_RDAMP && mg_base[j] < GP[g].max && off[j] ? GP[g].max - 1 : GP[g].max;
+        song.g[g] = (int16_t)clamp(mg_base[j] + ((off[j] + 128) >> 8), GP[g].min, mx);
+    }
+    sm_glob(off, nb);                                   /* (smooth.c: the master's knobs as the sound takes them) */
+    {                                                   /* ALL's, as they are now: the next block's tracks take them */
+        uint32_t any = 0;
+        all_now[0] = song.g[G_A_PIT] * 256 + pit_xf[NTRK] + pit_rl[NTRK];   /* (semitones, Q8) */
+        for (j = 0; j < mg_n; j++)                      /* (an FX LFO on it: unrounded) */
+            if (mg_id[j] == G_A_PIT)
+                all_now[0] = clamp(mg_base[j] * 256 + pit_xf[NTRK] + pit_rl[NTRK] + off[j], GP[G_A_PIT].min * 256,
+                                   GP[G_A_PIT].max * 256);
+        any = (uint32_t)all_now[0];
+        for (j = 1; j < NALL; j++) {
+            all_now[j] = smg(SKG_A1 + j - 1u);
+            any |= (uint32_t)all_now[j];
+        }
+        all_any = any != 0u;
+        all_out = (uint8_t)song.g[G_A_OUT];
+    }
+}
+static void mod_g_end(void)
+{
+    uint32_t j;
+    for (j = 0; j < mg_n; j++)
+        song.g[mg_id[j]] = mg_keep[j];
+    mg_n = 0;
+}
+
+/* after the part's block (when mw->on): the stored values back */
+static __attribute__((noinline)) void mod_end(track_t *t)
+{
+    uint32_t j;
+    modw_t *mw = &MOD(t);
+    for (j = 0; j < mw->nk; j++)
+        t->p[mw->kid[j]] = mw->keep[j];
+    mw->on = 0;
+}
+
+/* a voice's modulation (voice.c track_render, when mw->on), onto its vmod_t m as track_render made it:
+ * pitch (the increment again, with the fine factor fine as there), cutoff and shape (clamped to what the
+ * fixed routings can reach), the amplitude (and v->env_out, the next block's start). env: its envelope */
+static __attribute__((noinline)) void mod_voice(track_t *t, voice_t *v, vmod_t *m, int32_t fine)
+{
+    const modw_t *mw = &MOD(t);
+    int32_t pit = mw->pit, cut = mw->cut, shp = mw->shp, gain = mw->gain, env = m->envq15;
+    uint32_t k;
+    if (v == &t->v[t->m_vi])
+        t->m_env = env;                                 /* ENV of the latest note, for per-block destinations */
+    for (k = 0; k < mw->nv; k++) {
+        uint32_t s = mw->vsrc[k];
+        int32_t x = s == MS_ENV ? env : s == MS_VEL ? v->mvel * 258 : s == MS_KEY ? mod_key(v->note) : v->mrnd;
+        mod_voice_add(s, mw->vdst[k], x, mw->vamt[k], &pit, &cut, &shp, &gain);
+    }
+    if (pit) {
+        m->pitch16 = clamp(m->pitch16 + pit, 0, 2047);
+        m->inc = pitch_inc(m->pitch16);
+        if (fine)
+            m->inc += (uint32_t)((int32_t)(m->inc >> 12) * fine);
+    }
+    m->cutoff = clamp(m->cutoff + cut, -150 * 256, 150 * 256);
+    m->shape = clamp(m->shape + shp, -62 * 256, 190 * 256);
+    if (mw->amp) {
+        m->amp1 = mulq15(m->amp1, gain);
+        v->env_out = m->amp1;
+    }
+}
+
+/* 1.5.6 (#213): a slot on destination d (VEL, TIME) is active (not inlined: its loop stays off the ISRs' own) */
+static __attribute__((noinline)) int mod_has(const track_t *t, uint32_t d)
+{
+    const int16_t *p = t->p;
+    uint32_t k;
+    for (k = 0; k < NMSLOT; k++)
+        if (p[P_M1DST + 3u * k] == (int16_t)d && p[P_M1AMT + 3u * k] && p[P_M1SRC + 3u * k] > 0 &&
+            p[P_M1SRC + 3u * k] < MS_N)
+            return 1;
+    return 0;
+}
+
+/* 1.5.6 (#213): the slots on destination d (VEL, TIME) at a note of velocity vel, RAND rnd: VEL its offset (AMT 64 at
+ * a full source = 127), TIME its share of the longest delay (Q15, 0..; bipolar sources as 0..1, AMT < 0 inverted, as
+ * AMP). The per-track sources as now (the LFO with its FADE and DEPTH), ENV the latest note's. Not inlined: once a
+ * note-on / step, and only with such a slot */
+static __attribute__((noinline)) int32_t mod_at_note(const track_t *t, uint32_t d, uint32_t note, uint32_t vel,
+                                                     int32_t rnd)
+{
+    const int16_t *p = t->p;
+    int32_t sum = 0, lfo = mulq15(t->lfo_val, t->lfo_fade), g = mod_depth(t, lfo);
+    uint32_t k;
+    if (g < 32767)
+        lfo = mulq15(lfo, g);
+    for (k = 0; k < NMSLOT; k++) {
+        uint32_t s = (uint32_t)p[P_M1SRC + 3u * k];
+        int32_t a = p[P_M1AMT + 3u * k], x;
+        if (p[P_M1DST + 3u * k] != (int16_t)d || !a || !s || s >= MS_N)
+            continue;
+        x = s == MS_VEL ? (int32_t)vel * 258 : s == MS_KEY ? mod_key(note) : s == MS_RAND ? rnd : mod_tsrc(t, s, lfo);
+        if (d == MD_VEL) {
+            sum += (((x * a) >> 6) * 127) >> 15;
+        } else {
+            int32_t u = MS_BIPOLAR(s) && !(s == MS_LFO && p[P_LPOL]) ? (x + 32768) >> 1 : x;
+            u = clamp(u, 0, 32767);
+            sum += a > 0 ? (u * a) >> 6 : ((32767 - u) * -a) >> 6;
+        }
+    }
+    return sum;
+}
+
+/* a note-on of track t (voice.c trk_note_on): the per-voice sources of the latest note; the velocity it plays at
+ * (1.5.6: the matrix's VEL, when a slot has it) */
+static uint32_t mod_note(track_t *t, uint32_t note, uint32_t vel)
+{
+    int16_t r = mod_rand();
+    if (mod_has(t, MD_VEL))
+        vel = (uint32_t)clamp((int32_t)vel + mod_at_note(t, MD_VEL, note, vel, r), 1, 127);
+    t->m_vel = (uint8_t)vel;
+    t->m_key = (uint8_t)note;
+    t->m_rnd = r;
+    return vel;
+}
+
+/* 1.5.6 (#213): TIME on a step of velocity vel, its first note: how late it plays, in samples (0: on time). At most
+ * 30 ms, and 7/16 of the step (period: the step's samples), as the longest NUDGE */
+#define MOD_TIME_MAX ((uint32_t)FS * 30u / 1000u)
+static __attribute__((noinline)) uint32_t mod_time(track_t *t, uint32_t note, uint32_t vel, uint32_t period)
+{
+    uint32_t mx = period * 7u / NUDGE_DIV, d;
+    int32_t q;
+    if (!mod_has(t, MD_TIME))
+        return 0;
+    q = clamp(mod_at_note(t, MD_TIME, note, vel, mod_rand()), 0, 32767);
+    d = ((uint32_t)q * MOD_TIME_MAX) >> 15;
+    return d < mx ? d : mx;
+}
+
+/* a MIDI controller for track t (seq.c events_block): CC1 / CC11 / channel aftertouch; CC121 resets them */
+static __attribute__((noinline)) void mod_midi(track_t *t, uint32_t st, uint32_t d1, uint32_t d2)
+{
+    if (st == 0xD0u) {
+        t->at = (uint8_t)d1;
+    } else if (st == 0xB0u) {
+        if (d1 == 1u)
+            t->mw = (uint8_t)d2;
+        else if (d1 == 11u)
+            t->ex_off = (uint8_t)(127u - d2);
+        else if (d1 == 121u)
+            t->mw = t->at = t->ex_off = 0;
+    }
+}
+

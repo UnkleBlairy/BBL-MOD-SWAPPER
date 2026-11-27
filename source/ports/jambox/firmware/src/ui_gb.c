@@ -1,0 +1,1471 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Blair (blairysbeatlab), BBL JAM BOX */
+/* ui_gb.c - the groovebox look (FELUCCA_SIMPLE): black and one colour, big text, four circle-and-line dials a page. The
+ * colour is the selected track's machine's (SYN BD SD HH CYM PERC: GB_COL, to be set from the app later); on the
+ * MIXER each dial wears its own track's. One screen = the page's title and the BPM, four dials with their short
+ * name over and the value under, the page dots and the machine's name. The PERF page is 16 tiles. The screen is first
+ * described (gb_view_t), drawn from that, and only when the description changed. Pages: EDIT, FILTER, ENV, LFO, FX,
+ * PERF, MIXER, CLOCK; the rest keep the old look. */
+#define GB_STRIP 60                           /* canvas rows a strip */
+#define GB_W 0xFFFFu                                  /* the ink: white */
+#define GB_K 0x0000u                                  /* the background: black (the track's colour only up top) */
+#define GB_HDR 44                                     /* the header strip's rows (the track's colour, under the title) */
+#define GB_RGB(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
+static uint16_t gb_col[NTRK] = {GB_RGB(255, 90, 54), GB_RGB(255, 214, 10), GB_RGB(46, 196, 255), GB_RGB(179, 136, 255),
+                                GB_RGB(64, 214, 120), GB_RGB(255, 112, 196)};   /* a colour a TRACK */
+
+typedef struct {
+    uint8_t perf, mixer, mach, sel, ring, page, npages, mask, fade, rpt, hn, sv, flash;   /* ring: the VOLUME dial of the selected track (4 none) */   /* SAVE / LOAD: 1 2; flash: 1 lit, 2 dark */
+    char msg[2][16];
+    int16_t bpm;
+    uint8_t tm[NTRK];                         /* each track's machine */
+    uint8_t mac_n[8], mac_held[8];
+    uint8_t xf_a, xf_b, xf_x;                /* PERF: the crossfader's slots (0 empty, 1..8) and where it is (0..60 px) */
+    int16_t ratio[4];
+    uint8_t alt[4];
+    int16_t dj, cmix, ctune;                 /* PERF: the master DJ filter and comb */
+    uint8_t fill[8], rel, bpm_alt;           /* PERF: each held macro's tile filled 0..26 rows; the release fade; the tempo is held by a macro */                           /* a macro holds this value: its dial is drawn inverted */
+    uint8_t all, aout;                       /* the FX track's ALL side; the tracks left out of it */
+    uint8_t kmode, pk, fx, cross;            /* the keys: 1 SEQ 2 PARAM 3 KEY 4 KIT 5 ACID; PARAM's knob + 1 (0: the keys play); the FX
+                                              * track; a track's page on the FX track: a big X */
+    uint8_t spg, snp;                        /* SEQ: the page of steps shown (0..3), the pages (LEN up to 64) */
+    uint8_t nud;                             /* a step held + SELECT turned: its NUDGE + 9 (1..16), 0 no pop-up */
+    uint8_t rec;                             /* the selected track is armed (REC): a red REC by the BPM, 1 + its glow 0..15 */
+    uint8_t thit, tmute, trecb;              /* the track squares (the bottom): bit k track k just hit, is muted, records (a
+                                              * take on its way: teensy-fm1 fork, trec.c) */
+#if BOARD_SMK37
+    uint8_t klock;                           /* KEY LOCK: the keys' track + 1 (a bar over its square) */
+    uint8_t smix, vshow;                     /* MIX (the Elite): PAN dials with a level meter (VOL) under each; a PAN just moved
+                                              * shows in its place (bit k) */
+#endif
+    uint8_t meter, vmute;                    /* MIX: slot k is a level meter (bit k; the FM-1: its VOL dials), its track muted */
+    uint8_t mtk[4];                          /* .. the meter's track */
+    int16_t vol[4];                          /* .. its VOL as the white line, in half dB 0..MT_HD (gb_meters) */
+    uint16_t brd;                            /* the loop border: how far round (1..960 px, the selected track's loop); 0 stopped */
+    uint8_t icon, picon, hit, an;            /* the header's icon and the machine pill's (IC_*, engines.c); a drum just hit; an 808 */
+    uint8_t vic[4];                          /* a dial's value as an icon (SAMPLER's MODE), 0 = its text */
+    uint8_t wv, wa, wb;                      /* SAMPLER's waveform: 1 NO SAMPLE, 2 the chunk (window wa .. wb of GB_WAVE) */
+    uint16_t wkey;                           /* .. which chunk (its peaks) */
+    uint8_t zoom;                            /* START / LEN just turned (a lock too): the waveform zoomed on 1 START, 2 the end */
+    uint32_t za, zb;                         /* .. the window's first and last sample */
+    uint8_t tmod;                            /* LFO held (touch modulation): 1 the pop-up, no DEST yet, 2 with one */
+    int8_t tm_amt;                           /* .. its AMT, -64..63 */
+    uint8_t tm_src;                          /* .. whose: 0 LFO, 1 ENV, 2 FENV, 3..5 the FX track's LFO 1..3 (ui.c TM_NAME) */
+    uint8_t temp;                            /* OCT+ held + a knob turned: the temporary change's banner */
+    uint8_t fillm;                           /* PLAY held: FILL MODE's banner */
+    uint8_t hint;                            /* a held button's hint (ui.c gb_hint) */
+    char note[24];                           /* a message (ui_message) for the banner, while it shows */
+    uint8_t ban;                             /* a banner is up: no track squares under it */
+    uint8_t bn, bpg;                         /* .. its pages (1..4, two big lines each), the one shown */
+    char bt[8][20];                          /* .. their lines */
+    char tm_name[8];                         /* .. its DEST */
+    char pname[8];                           /* PARAM: its knob's name */
+    char title[12], lab[4][8], val[4][12];
+} gb_view_t;
+static gb_view_t gb_v, gb_last;
+static uint8_t gb_have;
+
+static int name_on(void);
+static uint64_t gbs_held(void);                    /* (ui_input.c) the steps held */
+static int sl_pop(void);                           /* (ui_input.c) two steps held: the slide's menu */
+static void sl_view(char *title, uint32_t n, char lab[][8], char val[][12], int16_t *ratio);
+static int acid_pop(void);                         /* (ui_input.c) a stage key held: its SLIDE pop-up */
+static uint32_t gbsv_leds(void);                   /* (ui_input.c) the SAVE screen's keys */
+static int gbs_used(uint32_t mach, uint32_t slot); /* (gb_store.c) the sounds and kits */
+static int gbk_used(uint32_t k);
+static int gbs_save_sound(uint32_t slot);
+static int gbs_load_sound(uint32_t slot);
+static int gbk_save(uint32_t k);
+static int gbk_load(uint32_t k);
+static void gb_store_poll(void);
+static uint8_t jam_force;                          /* (gb_store.c) saved by hand: at the next stop, no waiting for silence */
+static void jam_poll(void);                       /* (gb_store.c) the last jam to flash when quiet */
+static uint64_t lock_held(void);                   /* (ui_input.c) .. on a sound page: its knobs lock */
+static int kit_shown(int16_t *vp, int16_t *cur);   /* (ui_input.c) LOCKS: a dial's value */
+static const uint8_t *smp_peaks(uint32_t sl);      /* (gb_store.c) SAMPLER: a chunk's waveform */
+static const uint8_t *smp_zpeaks(uint32_t sl, int32_t x0, uint32_t w);   /* .. zoomed */
+/* the SEQ page (ui_input.c gbseq_knob) */
+static const uint8_t GB_SPEED[5] = {0, 1, 2, 3, 10};
+static uint32_t gb_speed(int32_t div)                    /* SPEED 0..4 of a DIV (another DIV: x1) */
+{
+    uint32_t i;
+    for (i = 0; i < 5u; i++)
+        if (GB_SPEED[i] == div)
+            return i;
+    return 2u;
+}
+static int32_t gb_own(const step_t *s)                   /* a step's own CHANCE, -1 none (the track's) */
+{
+    return s->probability && s->probability < COND_FIRST ? (int32_t)step_chance(s) : -1;
+}
+static uint32_t gb_trig(const step_t *s) { return gb_tc(s); }   /* a step's TRIG 0..GB_NTC (core.h) */
+static void gb_trig_name(char *b, uint32_t c)            /* "-", "1:2" .. "8:8", "FILL" .. "!1ST" */
+{
+    static const char *const NM[8] = {"FILL", "!FILL", "PRE", "!PRE", "NEI", "!NEI", "1ST", "!1ST"};
+    uint32_t a, n;
+    if (!c) {
+        str_cpy(b, "-", 4);
+    } else if (c <= GB_NAB) {
+        gb_tc_ab(c, &a, &n);
+        b[0] = (char)('0' + a);
+        b[1] = ':';
+        b[2] = (char)('0' + n);
+        b[3] = 0;
+    } else {
+        str_cpy(b, NM[(c - GB_TC_FILL) % 8u], 8);
+    }
+}
+static uint32_t gb_mach(uint32_t k) { return trk_mach(&trk[k % NTRK]); }
+
+/* the page's header icon: the machine's on its sound pages, the filter's type, the LFO's wave, the effect's (0: none) */
+static uint32_t gb_page_icon(const page_t *pg, uint32_t mach)
+{
+    const track_t *t = TSEL;
+    if (pg->graph == GR_PERF)
+        return IC_MACRO;
+    if (str_eq(pg->title, "COMB"))
+        return IC_COMB;
+    if (str_eq(pg->title, "DJ"))
+        return IC_DJ;
+    if (str_eq(pg->title, "CRUSH"))                     /* (SAMPLER's GATE: the machine's) */
+        return eng_idx(t->eng_req) == ENGI_SAMPLER ? MACHINES[mach % NMACH].icon : IC_AGE;
+    if (str_eq(pg->title, "DELAY"))
+        return IC_DELAY;
+    if (str_eq(pg->title, "VERB"))
+        return IC_VERB;
+    if (str_eq(pg->title, "SENDS"))
+        return IC_DELAY;
+    if (pg->id[0] == G_F1SYNC || pg->id[0] == G_F2SYNC)  /* (their settings: the wave too) */
+        return IC_SINE + (uint32_t)(song.g[pg->id[0] == G_F1SYNC ? G_F1WAVE : G_F2WAVE] % 6 < 3 ? song.g[pg->id[0] == G_F1SYNC ? G_F1WAVE : G_F2WAVE] % 6 : song.g[pg->id[0] == G_F1SYNC ? G_F1WAVE : G_F2WAVE] % 6 - 1);
+    if (pg->id[0] == G_F1RATE || pg->id[0] == G_F2RATE)   /* the FX track's LFOs: the wave (DOWN: SAW's) */
+        return IC_SINE + (uint32_t)(song.g[pg->id[1]] % 6 < 3 ? song.g[pg->id[1]] % 6 : song.g[pg->id[1]] % 6 - 1);
+    if (str_eq(pg->title, "AMP"))
+        return IC_NONE;
+    if (pg->fam == FAM_FLT)
+        return IC_LP + (uint32_t)(clamp(t->p[flt_blend(t) ? P_LN1 : P_FTYPE], 0, 127) + 32) / 64u;   /* (the nearest) */
+    if (pg->fam == FAM_LFO)
+        return IC_SINE + (uint32_t)t->p[P_LWAVE] % 5u;
+    if (pg->fam == FAM_TRK)                             /* VOLUME, CLOCK: all the tracks', none */
+        return IC_NONE;
+    return MACHINES[mach % NMACH].icon;
+}
+
+/* SAMPLER's values as the prototype shows them: PITCH in semitones, STRETCH x, MODE an icon, SLOT S01, GATE steps.
+ * -> the icon (IC_*) when the value is one, else 0 (b rewritten or kept) */
+static uint32_t smp_format(uint32_t id, int32_t cur, char *b)
+{
+    char nb[8];
+    uint32_t o = 0, q;
+    if (id == P_E0) {                                 /* (cur - 64) * 24 / 64 = (cur - 64) * 3 / 8, one decimal */
+        int32_t t10 = (cur - 64) * 30 / 8, a = t10 < 0 ? -t10 : t10;
+        b[o++] = t10 < 0 ? '-' : '+';
+        fmt_int(nb, a / 10);
+        for (q = 0; nb[q]; q++) b[o++] = nb[q];
+        b[o++] = '.';
+        b[o++] = (char)('0' + a % 10);
+        b[o] = 0;
+    } else if (id == P_E1) {                          /* 4^((cur - 64) / 64), two decimals */
+        uint32_t x = ((uint32_t)SMP_STRETCH[cur & 127] * 100u + 2048u) >> 12;
+        fmt_int(nb, (int32_t)(x / 100u));
+        for (q = 0; nb[q]; q++) b[o++] = nb[q];
+        b[o++] = '.';
+        b[o++] = (char)('0' + x / 10u % 10u);
+        b[o++] = (char)('0' + x % 10u);
+        b[o++] = 'x';
+        b[o] = 0;
+    } else if (id == P_E4) {
+        b[0] = 0;
+        return IC_ONCE + (uint32_t)(cur & 3);
+    } else if (id == P_E5) {
+        if (SMP_R && cur < (int32_t)SMP_R) {          /* (teensy-fm1 fork: R1..R6, the tracks' recordings) */
+            b[0] = 'R';
+            b[1] = (char)('1' + cur);
+            b[2] = 0;
+        } else {
+            cur -= (int32_t)SMP_R;
+            b[0] = 'S';
+            b[1] = (char)('0' + (cur + 1) / 10);
+            b[2] = (char)('0' + (cur + 1) % 10);
+            b[3] = 0;
+        }
+    } else if (id == P_DIST) {                        /* SCRUB: 0 off */
+        if (!cur)
+            str_cpy(b, "OFF", 8);
+    } else if (id == P_LN2) {                         /* 0 the key's length, else 1/16 .. BAR as FADE shows them */
+        uint32_t n = (uint32_t)cur, d = 16u;
+        if (!n) {
+            str_cpy(b, "KEY", 8);
+        } else if (n >= 16u) {
+            str_cpy(b, "BAR", 8);
+        } else {
+            while (!(n & 1u)) { n >>= 1; d >>= 1; }
+            fmt_int(nb, (int32_t)n);
+            for (q = 0; nb[q]; q++) b[o++] = nb[q];
+            b[o++] = '/';
+            fmt_int(nb, (int32_t)d);
+            for (q = 0; nb[q]; q++) b[o++] = nb[q];
+            b[o] = 0;
+        }
+    }
+    return 0;
+}
+
+/* the banners (ui_gb.c gb_banner): pages of two big lines; a page GB_BAN_MS, round again while it shows */
+#define GB_BAN_W 212
+#define GB_BAN_MS 2000u
+static const char *const TM_SHORT[6] = {"LFO", "ENV", "FENV", "LFO 1", "LFO 2", "LFO 3"};
+static int ban_fits(const char *s) { return large_face_has(s) && text_w(&AF_L, s) <= GB_BAN_W; }
+static void ban_put(gb_view_t *v, const char *a, const char *b)
+{
+    if (v->bn >= 4u)
+        return;
+    str_cpy(v->bt[2u * v->bn], a, sizeof v->bt[0]);
+    str_cpy(v->bt[2u * v->bn + 1u], b, sizeof v->bt[0]);
+    v->bn++;
+}
+static void ban_msg(gb_view_t *v, const char *m)   /* a message: one line, or two split at the space nearest the middle */
+{
+    uint32_t i, n = str_len(m), best = 0, bd = 999u;
+    char a[20];
+    if (ban_fits(m) || n >= sizeof a) {
+        ban_put(v, m, "");
+        return;
+    }
+    for (i = 1; i + 1u < n; i++)
+        if (m[i] == ' ' && (i > n / 2u ? i - n / 2u : n / 2u - i) < bd) {
+            bd = i > n / 2u ? i - n / 2u : n / 2u - i;
+            best = i;
+        }
+    if (!best) {
+        ban_put(v, m, "");
+        return;
+    }
+    str_cpy(a, m, best + 1u);
+    ban_put(v, a, m + best + 1u);
+}
+static void gb_ban_fill(gb_view_t *v)
+{
+    static uint32_t t0;
+    static char first[20];
+    char a[24], b[12];
+    v->bn = 0;
+    if (gbsv || gbsv_t) {                         /* (the SAVE? / LOAD? screen: none over it) */
+    } else if (v->tmod == 1u) {                   /* picking a DEST */
+        static const char *const BTN[3] = {"LFO", "ENV", "FILTER"};
+        const char *src = TM_NAME[v->tm_src % 6u];
+        if (v->tm_name[0]) {                      /* one set: "LFO > CUT" "+20", SELECT, OCT- */
+            str_cpy(a, TM_SHORT[v->tm_src % 6u], sizeof a);
+            str_cpy(a + str_len(a), " > ", sizeof a - str_len(a));
+            str_cpy(a + str_len(a), v->tm_name, sizeof a - str_len(a));
+            fmt_int(b + (v->tm_amt > 0), v->tm_amt);
+            if (v->tm_amt > 0)
+                b[0] = '+';
+            ban_put(v, a, b);
+            ban_put(v, "SELECT", "= AMOUNT");
+            ban_put(v, "OCT-", "= REMOVE");
+        } else {
+            str_cpy(a, src, sizeof a);
+            str_cpy(a + str_len(a), " DEST", sizeof a - str_len(a));
+            if (ban_fits(a))
+                ban_put(v, a, "WIGGLE KNOB");
+            else {
+                ban_put(v, src, "DEST");
+                ban_put(v, "WIGGLE", "KNOB");
+            }
+            str_cpy(a, "TAP ", sizeof a);
+            str_cpy(a + 4, BTN[v->tm_src < 3u ? v->tm_src : 5u - v->tm_src % 6u], sizeof a - 4u);
+            ban_put(v, a, "= CANCEL");
+        }
+    } else if (v->fillm) {                        /* PLAY held */
+        ban_put(v, "FILL MODE", "ENTER TRIGS");
+    } else if (v->temp) {                         /* OCT+ held, a knob turned */
+        ban_put(v, "RELEASE TO", "REVERT");
+    } else if (v->hint == 2u) {                   /* OCT+ held */
+        ban_put(v, "TEMP CHANGE", "WIGGLE KNOB");
+    } else if (cla_st == 2u) {                    /* OCT- held: CLEAR ALL? */
+        ban_put(v, "CLEAR ALL?", "PRESS OCT+");
+    } else if (v->hint == 3u) {                   /* an empty step held, a trig copied */
+        ban_put(v, "PASTE TRIG", "PRESS SAVE");
+    } else if (acid_kon() && acid_pop()) {        /* ACID: a stage key held, its SLIDE */
+        const acid_st_t *st = &acid_of(song.sel)->st[acid_sel[song.sel % NTRK] % ACID_N];
+        char l2[12];
+        str_cpy(l2, "TIME ", sizeof l2);
+        fmt_int(l2 + 5, st->stime ? st->stime : 40);
+        ban_put(v, st->flags & AF_SLIDE ? "SLIDE ON" : "SLIDE OFF", l2);
+#if BOARD_SMK37
+    } else if (v->hint == 1u && !v->note[0]) {    /* SEQ held: the pads (ui_input.c smk_pads_pages) */
+        ban_put(v, "WIGGLE KNOB", "= PARAM");
+        ban_put(v, "PADS 1-4", "= PAGES");
+        ban_put(v, "PINK = LOCKS", "GREEN = ACID");
+        ban_put(v, "WHITE", "= STEPS");
+#endif
+    } else if (v->hint == 1u && !BOARD_SMK37) {   /* SEQ held (the Elite: its own above, a message over it) */
+        ban_put(v, "WHITE KEY", "= LOCKS");
+        ban_put(v, "WIGGLE KNOB", "= PARAM");
+        ban_put(v, "OCT+", "= ACID");
+        ban_put(v, "TAP SEQ", "= CANCEL");
+    } else if (v->note[0]) {
+        ban_msg(v, v->note);
+    }
+    v->ban = (uint8_t)(v->bn != 0u);
+    if (v->bn && !str_eq(first, v->bt[0])) {      /* (a new banner: from its first page) */
+        str_cpy(first, v->bt[0], sizeof first);
+        t0 = fm1_ms;
+    } else if (!v->bn) {
+        first[0] = 0;
+    }
+    v->bpg = (uint8_t)(v->bn > 1u ? (uint32_t)clamp((int32_t)(fm1_ms - t0), 0, 1 << 30) / GB_BAN_MS % v->bn : 0u);
+}
+
+/* MIX's level meters: each track's sound after its VOL (fx.c t->peak, read and cleared here), in half dB, 0..MT_HD = 48 dB
+ * up to a usual voice peak at VOL's top (+7.5 dB). The white line = where a usual voice peak at
+ * this VOL reaches, so VOL down = no meter, cranked = into the red; the meter stops at the line. Yellow, orange from
+ * MT_OR, red from MT_RD (the top 6 dB). Drawn straight onto the panel between pictures (only the rows that changed). */
+#define MT_HD 96
+#define MT_OR 66
+#define MT_RD 84
+static int32_t mt_line(const track_t *t)          /* the line: VOL v is (v - 112) / 2 dB (gen_tables.py), the top +7.5 dB */
+{
+    int32_t l = (int32_t)t->p[P_LEVEL] - (127 - MT_HD);
+    return t->p[P_LEVEL] <= 0 ? 0 : l < 0 ? 0 : l > MT_HD ? MT_HD : l;
+}
+static void gb_fill(gb_view_t *v)
+{
+    const page_t *pg = cur_page();
+    uint32_t k, i, n = 0, at = 0, smp;
+    uint64_t lk;
+    char *p = (char *)v;
+    for (i = 0; i < sizeof *v; i++)
+        p[i] = 0;
+    v->perf = pg->graph == GR_PERF && !fxt_x(pg);
+    v->mixer = pg->graph == GR_TRK;
+    v->sel = (uint8_t)song.sel;
+    v->bpm = song.g[G_BPM];
+    v->temp = (uint8_t)(FELUCCA_SIMPLE && mom.n != 0u);
+    v->fillm = (uint8_t)(FELUCCA_SIMPLE && seq_fill);
+    v->hint = gb_hint;
+    if (ui.msg_t && ui.msg[0] > 1)                /* (not one led by an icon byte) */
+        str_cpy(v->note, ui.msg, sizeof v->note);
+    if (tm_dn) {                                  /* picking a DEST: 1 the banner, 2 (a knob picked) the amount's pop-up */
+        uint32_t d = tm_dest();
+        v->tmod = (uint8_t)(tm_up && d ? 2u : 1u);
+        v->tm_src = (uint8_t)(fxl_sel ? 3u + tm_fxk() : (tm_dn - 1u) % 3u);   /* (3..5: the FX track's LFO 1..3) */
+        v->tm_amt = (int8_t)(d ? *tm_amt() : 0);
+        if (d)
+            str_cpy(v->tm_name, fxl_sel ? N_FXDST[d % NELEM(N_FXDST)] : tm_name(TSEL, d), sizeof v->tm_name);
+    }
+    gb_ban_fill(v);
+    v->bpm_alt = (uint8_t)(pm_altered(TSEL, &song.g[G_BPM]) != 0);
+    if ((song.rec >> song.sel) & 1u) {           /* REC: playing, it breathes twice a bar (one breath = 2 beats) */
+        uint32_t bs = beat_samples(), ph = ((beat_n & 1u) * bs + (beat_pos < bs ? beat_pos : bs)) * 32u / (2u * bs + 1u);
+        v->rec = (uint8_t)(1u + (song.playing ? (ph < 16u ? 15u - ph : ph - 16u) : 15u));
+    }
+    str_cpy(v->title, pg->title, sizeof v->title);
+#if defined(TEENSY_NOR_ADDR)
+    if (pg->fam == FAM_EDIT && !fxl_sel && trk_mach(TSEL) == MACH_INPUT)   /* (teensy-fm1 fork: INPUT's pages, not OSC) */
+        str_cpy(v->title, pg->id[0] == OK(4) ? "PLAYBACK" : "INPUT", sizeof v->title);
+#endif
+    v->kmode = (uint8_t)(ui.sgrid == 1u ? 1u : ui.sgrid == 2u ? 2u : ui.sgrid == 3u ? 4u : ui.sgrid == 4u && !fxl_sel ? 5u : 3u);
+    if (v->kmode == 1u) {
+        v->snp = (uint8_t)((sq_len() + 15u) / 16u);   /* (the FX lane's too) */
+        v->spg = ui.bank;
+    }
+    if (gb_nd_t && (int32_t)(fm1_ms - gb_nd_t) < (int32_t)TM_SHOW_MS && gbs_held()) {
+        uint64_t h = gbs_held();
+        uint32_t i = 0;
+        while (!((h >> i) & 1u))
+            i++;
+        v->nud = (uint8_t)(step_nudge(&TSEL->step[i]) + 9);
+    }
+    v->pk = (uint8_t)(par_on() && par_id != 0xFFu && par_pg == ui.page && !ui.home ? par_k + 1u : 0u);
+    if (par_on() && par_id != 0xFFu)
+        str_cpy(v->pname, (par_id < P_COUNT ? track_desc(TSEL, par_id) : motion_desc(TSEL, par_id))->label, sizeof v->pname);
+    v->fx = fxl_sel;
+    v->all = !ui.home && pg->fxt == 2u;              /* (ALL's pages: white) */
+    v->aout = (uint8_t)(fxl_sel ? song.g[G_A_OUT] : 0);
+    for (k = 0; k < NTRK; k++)
+        v->tm[k] = (uint8_t)gb_mach(k);
+    v->mach = v->tm[song.sel % NTRK];
+    v->picon = v->fx ? IC_NONE : MACHINES[v->mach % NMACH].icon;
+    v->an = (uint8_t)(!v->fx && MACHINES[v->mach % NMACH].engine == ENGI_ANALOG);
+    v->icon = (uint8_t)(v->all ? IC_NONE : gb_page_icon(pg, v->mach));
+    for (k = 0; k < NTRK; k++) {                  /* the track squares: a hit (~90 ms), a mute */
+        uint32_t h = trk_hit_ms[k];
+        if (h && fm1_ms - h < 90u)
+            v->thit |= (uint8_t)(1u << k);
+        if (trk[k].p[P_MUTE])
+            v->tmute |= (uint8_t)(1u << k);
+#if defined(TEENSY_NOR_ADDR)
+        if (trec_rec_now(k))                      /* (a take, or the LOOPER overdubbing) */
+            v->trecb |= (uint8_t)(1u << k);
+#endif
+    }
+#if BOARD_SMK37
+    v->klock = kb_lock;
+#endif
+    if (song.playing) {                           /* the loop border: the selected track's place in its loop */
+        const track_t *t = &trk[song.sel % NTRK];
+        uint32_t len = t->p[P_SLEN] ? (uint32_t)t->p[P_SLEN] : 1u, idx = t->seq_idx % len;
+        uint32_t cl = step_samples(t, div_samples((uint32_t)t->p[P_SDIV]), idx), fs = 0;
+        if (t->seq_pos < cl)
+            fs = t->seq_pos / (cl / 256u + 1u);
+        v->brd = (uint16_t)(1u + (idx * 256u + fs) * 960u / (len * 256u));
+        if (acid_on(t) && acid_rt[song.sel % NTRK].go == 2u) {   /* ACID: how far through its stages (their pulses) */
+            const acid_t *a = acid_of(song.sel);
+            uint32_t i2, at = 0, all = 0, cur = acid_rt[song.sel % NTRK].st;
+            for (i2 = 0; i2 < a->stages; i2++) {
+                uint32_t pu = a->st[i2].flags & AF_SKIP ? 0u : a->st[i2].pulses;
+                at += i2 < cur ? pu : i2 == cur ? acid_rt[song.sel % NTRK].pul : 0u;
+                all += pu;
+            }
+            v->brd = (uint16_t)(1u + at * 960u / (all ? all : 1u));
+        }
+    }
+    {                                             /* a drum's hit: the header icon flashes ~90 ms */
+        uint32_t h = trk_hit_ms[song.sel % NTRK];
+        v->hit = (uint8_t)(MACHINES[v->mach % NMACH].drum && h && fm1_ms - h < 90u);
+    }
+    for (i = 0; i < NPAGES; i++)
+        if (PAGES[i].fam == pg->fam && page_visible(i)) {
+            if (i == ui.page)
+                at = n;
+            n++;
+        }
+    v->page = (uint8_t)at;
+    v->npages = (uint8_t)n;
+    if (gbsv || gbsv_t) {                         /* SAVE? / LOAD?, or what was saved / loaded, flashing */
+        v->sv = gbsv ? gbsv : 1u;
+        v->all = 0;
+        if (gbsv_t) {
+            v->flash = (uint8_t)((uint32_t)clamp((int32_t)(fm1_ms - gbsv_t), 0, 99999) / 150u & 1u ? 2u : 1u);
+            memcpy(v->msg, gbsv_msg, sizeof v->msg);
+        }
+        return;
+    }
+    if (fxt_x(pg)) {                              /* the FX track: a track's page is none of its own */
+        v->cross = 1;
+        v->icon = IC_NONE;
+        return;
+    }
+    if (v->perf) {
+        for (i = 0; i < PM_NM; i++) {
+            uint32_t j;
+            v->mac_n[i] = (uint8_t)pm_mac[i].n;
+            for (j = 0; j < pm_h.n; j++)
+                if (pm_h.mac[j] == i)
+                    v->mac_held[i] = 1;
+        }
+        v->fade = (uint8_t)pm_fade;
+        v->hn = (uint8_t)pm_h.n;
+        v->rel = pm_rel;
+        v->dj = song.g[G_MIDI];
+        v->cmix = song.g[G_SYNC];
+        v->ctune = song.g[G_CRATE];
+        if (pm_h.n && pm_ui_c < PM_NM) {
+            uint32_t f = (uint32_t)pm_ui_u * 26u / 1024u;
+            if (f > 26u)
+                f = 26u;
+            if (pm_h.n == 2u && pm_ui_a < PM_NM)
+                v->fill[pm_ui_a] = (uint8_t)(26u - f);
+            v->fill[pm_ui_c] = (uint8_t)f;
+        }
+        v->rpt = (uint8_t)(perf_held & 15u);
+        v->xf_a = xf.a;
+        v->xf_b = xf.b;
+        v->xf_x = (uint8_t)(xf.pos * 60u / 127u);
+        return;
+    }
+#if BOARD_SMK37
+    if (v->mixer) {                           /* the Elite's MIX: PAN on the dials, VOL as a fader icon; a value moved ~1 s ago */
+        static int16_t lpan[NTRK], llv[NTRK];    /* shows in the icon's place */
+        static uint32_t tpan[NTRK], tlv[NTRK];
+        static uint8_t seen;
+        v->ring = 4;
+        v->smix = 1;
+        for (k = 0; k < NTRK; k++) {
+            const track_t *t = &trk[k];
+            if (seen && t->p[P_PAN] != lpan[k])
+                tpan[k] = fm1_ms | 1u;
+            if (seen && t->p[P_LEVEL] != llv[k])
+                tlv[k] = fm1_ms | 1u;
+            lpan[k] = t->p[P_PAN];
+            llv[k] = t->p[P_LEVEL];
+        }
+        seen = 1;
+        for (k = 0; k < 4u; k++) {
+            uint32_t tk = pg->id[k] & ~MIX_PAN;
+            const track_t *t;
+            const char *u, *nm;
+            int sp, sl;
+            if (tk >= NTRK)
+                continue;
+            t = &trk[tk];
+            nm = MACHINES[v->tm[tk] % NMACH].pill;
+            for (i = 0; i < 4u && nm[i]; i++)
+                v->lab[k][i] = nm[i];
+            if (tk == song.sel)
+                v->ring = (uint8_t)k;
+            sp = tpan[tk] && (int32_t)(fm1_ms - tpan[tk]) < 1000;
+            sl = 0;                                   /* (VOL: no number, the meter's white line moves; Blair) */
+            (void)tlv;
+            if (sp) {
+                param_format(&TP[P_PAN], t->p[P_PAN], v->val[k], &u);
+                v->vshow |= (uint8_t)(1u << k);
+            }
+            if (t->p[P_MUTE])
+                v->vmute |= (uint8_t)(1u << k);
+            v->ratio[k] = (int16_t)(RATIO(&TP[P_PAN], t->p[P_PAN]) < 0 ? 0 : RATIO(&TP[P_PAN], t->p[P_PAN]));
+            v->vol[k] = (int16_t)mt_line(t);
+            v->mtk[k] = (uint8_t)tk;
+            v->meter |= (uint8_t)(1u << k);
+            v->mask |= (uint8_t)(1u << k);
+        }
+        return;
+    }
+#endif
+    if (v->mixer) {                           /* the page's tracks' levels (VOLUME 1-4, 5-6) */
+        v->ring = 4;
+        for (k = 0; k < 4u; k++) {
+            uint32_t tk = pg->id[k] & ~MIX_PAN, id = pg->id[k] & MIX_PAN ? P_PAN : P_LEVEL;
+            const char *nm;
+            const track_t *t;
+            if (tk >= NTRK)
+                continue;
+            nm = id == P_PAN ? "PAN" : MACHINES[v->tm[tk] % NMACH].pill;
+            t = &trk[tk];
+            if (tk == song.sel && id == P_LEVEL)
+                v->ring = (uint8_t)k;
+            const param_desc_t *d = &TP[id];
+            const char *u;
+            for (i = 0; i < 4u && nm[i]; i++)
+                v->lab[k][i] = nm[i];
+            if (id == P_LEVEL) {                  /* VOL: a level meter, its white line the VOL (gb_meters; Blair) */
+                v->vol[k] = (int16_t)mt_line(t);
+                v->mtk[k] = (uint8_t)tk;
+                v->meter |= (uint8_t)(1u << k);
+                if (t->p[P_MUTE])
+                    v->vmute |= (uint8_t)(1u << k);
+                (void)u;
+            } else
+                param_format(d, t->p[id], v->val[k], &u);
+            v->ratio[k] = (int16_t)(RATIO(d, t->p[id]) < 0 ? 0 : RATIO(d, t->p[id]));
+            v->mask |= (uint8_t)(1u << k);
+        }
+        return;
+    }
+    if (pg->graph == GR_GBSEQ && fxl_sel) {       /* the FX track: its lane's LEN */
+        str_cpy(v->lab[0], "LEN", sizeof v->lab[0]);
+        fmt_int(v->val[0], (int32_t)fxl_len());
+        v->ratio[0] = (int16_t)((fxl_len() - 1u) * 1000u / (FXN - 1u));
+        v->mask = 1u;
+        return;
+    }
+    if (pg->graph == GR_GBSEQ) {                  /* LEN SPEED CHANCE TRIG; a step held: STEP n, its own CHANCE and TRIG */
+        static const char *const SPN[5] = {"x1/4", "x1/2", "x1", "x2", "x4"};
+        static const char *const LB[4] = {"LEN", "SPD", "CHNC", "TRIG"};
+        const track_t *t = TSEL;
+        uint64_t held = gbs_held();
+        uint32_t p = 0, sp = gb_speed(t->p[P_SDIV]);
+        int32_t ch = t->p[P_APROB] > 100 ? 100 : t->p[P_APROB], tr = -1;
+        while (held && !((held >> p) & 1u))
+            p++;
+        if (held) {
+            char nb[4];
+            fmt_int(nb, (int32_t)p + 1);
+            str_cpy(v->title, "STEP ", sizeof v->title);
+            str_cpy(v->title + 5, nb, sizeof v->title - 5u);
+            ch = gb_own(&t->step[p]);
+            tr = (int32_t)gb_trig(&t->step[p]);
+        }
+        for (k = 0; k < 4u; k++) {
+            str_cpy(v->lab[k], LB[k], sizeof v->lab[k]);
+            v->mask |= (uint8_t)(1u << k);
+        }
+        fmt_int(v->val[0], t->p[P_SLEN]);
+        v->ratio[0] = (int16_t)((t->p[P_SLEN] - 1) * 1000 / (NSTEP - 1));
+        str_cpy(v->val[1], SPN[sp], sizeof v->val[1]);
+        v->ratio[1] = (int16_t)(sp * 250u);
+        if (ch < 0) {
+            str_cpy(v->val[2], "TRK", sizeof v->val[2]);
+            v->ratio[2] = 0;
+        } else {
+            fmt_int(v->val[2], ch);
+            for (i = 0; v->val[2][i]; i++)
+                ;
+            v->val[2][i] = '%';
+            v->val[2][i + 1u] = 0;
+            v->ratio[2] = (int16_t)(ch * 10);
+        }
+        gb_trig_name(v->val[3], (uint32_t)(tr < 0 ? 0 : tr));
+        v->ratio[3] = (int16_t)((tr < 0 ? 0 : tr) * 1000 / (int32_t)GB_NTC);
+        return;
+    }
+#if defined(TEENSY_NOR_ADDR)
+    if (pg->graph == GR_TREC) {                   /* teensy-fm1 fork: REC, REC IN (trec_ui.c) */
+        trec_view(str_eq(pg->title, "REC IN"), v->title, v->lab, v->val, v->ratio, &v->mask, &v->wv, &v->wa, &v->wb, &v->wkey);
+        return;
+    }
+#endif
+    if (pg->graph == GR_ACID) {                   /* ACID (seq.c acid): the stage picked's, the track's (ui.c acid_pg); */
+        static const char *const LB[8] = {"PITCH", "PULSE", "GATE", "OCT", "LEN", "DIR", "SPD", "GATE"};   /* a stage */
+        static const char *const GN[AG_N] = {"MUTE", "FIRST", "EVERY", "HOLD"};          /* .. key held: SLIDE TIME */
+        static const char *const DN[AD_N] = {"FWD", "REV", "PING", "RAND", "BRWN"};
+        static const char *const SPN[5] = {"x1/4", "x1/2", "x1", "x2", "x4"};
+        const acid_t *a = acid_of(song.sel);
+        uint32_t sp = acid_sel[song.sel % NTRK] % ACID_N, pn = acid_pg(pg), x, pop = acid_pop();
+        const acid_st_t *st = &a->st[sp];
+        char nb[4];
+        if (pn == 0u || pop) {                    /* "STAGE 3" */
+            fmt_int(nb, (int32_t)sp + 1);
+            str_cpy(v->title, "STAGE ", sizeof v->title);
+            str_cpy(v->title + 6, nb, sizeof v->title - 6u);
+        }
+        if (pop) {
+            x = st->stime ? st->stime : 40u;
+            str_cpy(v->lab[0], "SLIDE", sizeof v->lab[0]);
+            str_cpy(v->val[0], st->flags & AF_SLIDE ? "ON" : "OFF", sizeof v->val[0]);
+            v->ratio[0] = (int16_t)(st->flags & AF_SLIDE ? 1000 : 0);
+            str_cpy(v->lab[1], "TIME", sizeof v->lab[1]);
+            fmt_int(v->val[1], (int32_t)x);
+            v->ratio[1] = (int16_t)(x * 1000u / 127u);
+            v->mask = 3u;
+            return;
+        }
+        for (k = 0; k < 4u; k++) {
+            int32_t r = 0;
+            char *o = v->val[k];
+            str_cpy(v->lab[k], LB[pn * 4u + k], sizeof v->lab[k]);
+            v->mask |= (uint8_t)(1u << k);
+            switch (pn * 4u + k) {
+            case 0:                               /* the note it plays: "D#4" */
+                x = acid_note(a, st);
+                str_cpy(o, N_NOTE[x % 12u], sizeof v->val[k]);
+                fmt_int(nb, (int32_t)x / 12 - 1);
+                str_cpy(o + str_len(o), nb, sizeof v->val[k] - str_len(o));
+                r = st->pitch * 1000 / 12;
+                break;
+            case 1: fmt_int(o, st->pulses); r = (st->pulses - 1) * 1000 / 7; break;
+            case 2: str_cpy(o, GN[st->gate % AG_N], sizeof v->val[k]); r = st->gate % AG_N * 333; break;
+            case 3:
+                if (st->oct > 3u)
+                    o[0] = '+';
+                fmt_int(o + (st->oct > 3u), (int32_t)st->oct - 3);
+                r = st->oct * 1000 / 6;
+                break;
+            case 4: fmt_int(o, a->stages); r = (a->stages - 1) * 1000 / 15; break;
+            case 5: str_cpy(o, DN[a->dir % AD_N], sizeof v->val[k]); r = a->dir % AD_N * 250; break;
+            case 6:
+                x = gb_speed(TSEL->p[P_SDIV]);
+                str_cpy(o, SPN[x], sizeof v->val[k]);
+                r = (int32_t)x * 250;
+                break;
+            default:
+                fmt_int(o, a->gate * 100 / 127);
+                str_cpy(o + str_len(o), "%", sizeof v->val[k] - str_len(o));
+                r = a->gate * 1000 / 127;
+                break;
+            }
+            v->ratio[k] = (int16_t)r;
+        }
+        return;
+    }
+    lk = lock_held();
+    smp = !v->fx && eng_idx(TSEL->eng_req) == ENGI_SAMPLER && pg->scope == SC_ENGINE;
+    if (smp && str_eq(pg->title, "CRUSH"))
+        str_cpy(v->title, "GATE", sizeof v->title);
+    else if (smp) {                                   /* the chunk's waveform, START .. START + LEN bright */
+        const track_t *t = TSEL;
+        int16_t st = t->p[P_E2], ln = t->p[P_E3];
+        uint32_t sl = (uint32_t)t->p[P_E5], a, b, s0 = 0;
+        if (lk) {                                     /* a step held: its START / LEN locks */
+            while (!((lk >> s0) & 1u))
+                s0++;
+            (void)motion_lock_get(t, s0, P_E2, &st);
+            (void)motion_lock_get(t, s0, P_E3, &ln);
+        }
+        smp_window(GB_WAVE, st, ln, &a, &b, 1u);           /* (as eng_sampler.c's window, in columns) */
+        b = a + b - 1u;
+        if (sl < smp_n && ui.hot_t && page_id_an(pg, pg->id[ui.hot_col & 3u]) == P_E2 + (ui.hot_col == 3u)
+            && (ui.hot_col == 2u || ui.hot_col == 3u)) {
+            uint32_t n = smp_tab[sl].len;             /* the window in samples (eng_sampler.c sampler_note_on) */
+            v->zoom = (uint8_t)(ui.hot_col - 1u);
+            smp_window(n, st, ln, &v->za, &v->zb, 65u);
+            v->zb = v->za + v->zb - 1u;
+        }
+        v->wv = smp_peaks(sl) ? 2u : 1u;
+        v->wa = (uint8_t)a;
+        v->wb = (uint8_t)(b > GB_WAVE - 1u ? GB_WAVE - 1u : b);
+        v->wkey = (uint16_t)(sl | smp_gen << 6);
+    }
+    for (k = 0; k < 4u; k++) {
+        int16_t *vp, cur;
+        const param_desc_t *d = page_desc(pg, k, &vp);
+        const char *u;
+        int32_t r;
+        if (!d || !d->label || d->label[0] == '-')
+            continue;
+        for (i = 0; i < 7u && d->label[i]; i++)
+            v->lab[k][i] = d->label[i];
+        cur = *vp;
+        v->alt[k] = (uint8_t)(pm_altered(TSEL, vp) != 0);
+        if (lk && v->fx) {                            /* the FX lane's step held: its lock of a master knob (inverted) */
+            uint32_t g = vp >= song.g && vp < song.g + G_COUNT ? fxl_j((uint32_t)(vp - song.g)) : 0xFFu, st = 0;
+            while (!((lk >> st) & 1u))
+                st++;
+            v->alt[k] = 0;
+            if (g != 0xFFu && ((fxl.lk[st] >> g) & 1u)) {
+                cur = *fxl_vp(st, g);
+                v->alt[k] = 1;
+            }
+        } else if (lk && ((vp >= TSEL->p && vp < TSEL->p + P_COUNT) ||
+                   (vp >= song.g && vp < song.g + G_COUNT && motion_gid((uint32_t)(vp - song.g)) != 0xFFu))) {
+            /* a step held: its lock (inverted), else the sound's own */
+            uint32_t id = vp >= TSEL->p && vp < TSEL->p + P_COUNT ? (uint32_t)(vp - TSEL->p) : motion_gid((uint32_t)(vp - song.g)), st = 0;
+            int16_t lv;
+            while (!((lk >> st) & 1u))
+                st++;
+            v->alt[k] = 0;
+            if (motion_lock_get(TSEL, st, id, &lv)) {
+                cur = lv;
+                v->alt[k] = 1;
+            } else if (motion_param(id)) {
+                cur = motion_base_value(TSEL, id);
+            }
+        } else if (FELUCCA_SIMPLE && !v->fx && kit_on()) {   /* LOCKS: a key held, its lock (inverted); else the sound's own */
+            int16_t kv = (int16_t)cur;
+            if (kit_shown(vp, &kv))
+                v->alt[k] = 1;
+            cur = kv;
+        }
+        param_format(d, cur, v->val[k], &u);
+        if (d->names == N_MDST)                       /* (a DEST: the machine's knob by its own name, as the picker) */
+            str_cpy(v->val[k], tm_name(TSEL, (uint32_t)cur % MD_N), sizeof v->val[k]);
+        if (smp && vp >= TSEL->p && vp < TSEL->p + P_COUNT)
+            v->vic[k] = (uint8_t)smp_format((uint32_t)(vp - TSEL->p), cur, v->val[k]);
+#if defined(TEENSY_NOR_ADDR)
+        else if (!v->fx && trk_mach(TSEL) == MACH_INPUT && pg->scope == SC_ENGINE && (vp == &TSEL->p[P_E3] || vp == &TSEL->p[P_E5]))
+            v->vic[k] = (uint8_t)smp_format(vp == &TSEL->p[P_E3] ? P_E1 : P_E4, vp == &TSEL->p[P_E3] ? cur + 64 : cur, v->val[k]);
+                                                      /* (PLAYBACK: STRCH as the sampler's x, MODE its icons) */
+#endif
+        if (vp == &song.g[G_RDAMP] && cur >= 127)       /* the reverb's FDBK at the top holds (rev_swarm.c) */
+            str_cpy(v->val[k], "HOLD", sizeof v->val[k]);
+        if (str_eq(v->val[k], "CYM"))                 /* (too wide beside a negative value) */
+            str_cpy(v->val[k], "CY", sizeof v->val[k]);
+        r = RATIO(d, enum_rank(d, cur));
+        v->ratio[k] = (int16_t)(r < 0 ? 0 : r);
+        v->mask |= (uint8_t)(1u << k);
+    }
+    if (str_eq(pg->title, "CLOCK")) {                 /* the audio's CPU load (read only): the room the sounds have */
+        uint32_t c = song.cpu_q8 * 100u / 256u;
+        c = c > 100u ? 100u : c;
+        str_cpy(v->lab[3], "CPU", sizeof v->lab[3]);
+        fmt_int(v->val[3], (int32_t)c);
+        for (i = 0; v->val[3][i]; i++)
+            ;
+        v->val[3][i] = '%';
+        v->val[3][i + 1u] = 0;
+        v->ratio[3] = (int16_t)(c * 10u);
+        v->mask |= 8u;
+    }
+}
+
+/* an oval (a pill) made of rows: on = filled, else a 2 px outline. (cv_rrect rounds at most 8 px; these are up to 17) */
+static uint16_t gb_bg;                                      /* the screen's background (black) */
+static uint16_t gb_hc;                                      /* the header strip's colour (the track's) */
+static uint32_t gb_isqrt(uint32_t n)
+{
+    uint32_t r = 0;
+    while ((r + 1u) * (r + 1u) <= n)
+        r++;
+    return r;
+}
+static int32_t gb_ymin = -32768;                            /* gb_oval: only the rows from here down (a tile filling up) */
+static void gb_oval(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t col)
+{
+    int32_t r = h / 2, j;
+    for (j = 0; j < h; j++) {
+        if (y + j < gb_ymin)
+            continue;
+        int32_t d2 = 2 * j + 1 - h;                              /* the row's centre from the middle, in half pixels */
+        int32_t dx = (int32_t)gb_isqrt((uint32_t)(r * r * 4 - d2 * d2) + 0u) ;
+        int32_t in = r - (dx + 1) / 2;
+        cv_rect(x + in, y + j, w - 2 * in, 1, col);
+    }
+}
+static void gb_pill(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c, int on)
+{
+    gb_oval(x, y, w, h, c);
+    if (!on)
+        gb_oval(x + 2, y + 2, w - 4, h - 4, gb_bg);
+}
+
+static void gb_clip(int32_t y0, int32_t y1)                  /* text only in the screen rows y0 .. y1 - 1 */
+{
+    int32_t a = y0 + cv_oy, b = y1 + cv_oy;
+    cv_cy0 = (int16_t)(a < 0 ? 0 : a);
+    cv_cy1 = (int16_t)(b > GB_STRIP ? GB_STRIP : b < a ? a : b);
+}
+static void gb_unclip(void) { cv_cy0 = 0; cv_cy1 = GB_STRIP; }
+
+/* a 16 x 16 icon (IC_*) at x, y, each pixel s x s, in col: a run of lit pixels a rectangle (cv_rect keeps to the strip) */
+static void gb_icon(int32_t x, int32_t y, int32_t s, uint32_t icon, uint16_t col)
+{
+    const uint16_t *ic = icon < IC_COUNT ? GB_ICONS[icon] : 0;
+    int32_t j, i, r;
+    if (!ic)
+        return;
+    for (j = 0; j < 16; j++) {
+        if (y + (j + 1) * s + cv_oy <= 0 || y + j * s + cv_oy >= GB_STRIP)
+            continue;
+        for (i = 0; i < 16; i = r) {
+            for (r = i; r < 16 && ((ic[j] << r) & 0x8000u); r++)
+                ;
+            if (r > i)
+                cv_rect(x + i * s, y + j * s, (r - i) * s, s, col);
+            else
+                r++;
+        }
+    }
+}
+
+/* the header: the page's icon at 2x (inverted while a drum hits), the title beside it and the page's n/N, the BPM at
+ * the right. The title loses the n/N, then steps down a size, so it never runs into the BPM */
+static void gb_header(const gb_view_t *v, const char *title, uint16_t bgc)
+{
+    char bb[8], tg[8];
+    bgc = gb_hc;                                                  /* (on the track's colour strip, not the black) */
+    cv_rect(0, 0, 240, GB_HDR, bgc);
+    int32_t tx = v->icon ? 48 : 8, bw, room, tw, gw = 0;
+    const aafont_t *tf = &AF_L;
+    if (v->icon) {
+        if (v->hit) {
+            cv_rrect(4, 4, 40, 36, 6, GB_W, bgc);
+            gb_icon(8, 6, 2, v->icon, bgc);
+        } else
+            gb_icon(8, 6, 2, v->icon, GB_W);
+    }
+    fmt_int(bb, v->bpm);
+    bw = text_w(&AF_L, bb) + (v->bpm_alt ? 12 : 0);              /* (the title's size) */
+    if (v->bpm_alt) {                                             /* the tempo held by a macro: inverted */
+        cv_rrect(232 - bw + 6, 4, bw, 34, 6, GB_W, bgc);
+        cv_text_r(232, 6, &AF_L, bb, bgc, GB_W);
+    } else
+        cv_text_r(232, 6, &AF_L, bb, GB_W, bgc);
+    if (v->rec) {                                                 /* armed: a red REC left of the BPM */
+        int32_t rw = text_w(&AF_M, "REC") + 12, rx = 232 - bw - 6 - rw;
+        cv_rrect(rx - 1, 9, rw + 2, 24, 7, GB_W, bgc);
+        uint16_t rc = (uint16_t)((8u + 23u * (v->rec - 1u) / 15u) << 11);   /* dark red .. red */
+        rc = v->all ? (uint16_t)~rc : rc;                         /* (ALL inverts the picture: still red) */
+        cv_rrect(rx, 10, rw, 22, 6, rc, GB_W);
+        cv_text_on(rx + 6, 13, &AF_M, "REC", GB_W, rc);
+        bw += rw + 6;
+    }
+    room = 232 - bw - 8 - tx;
+    tg[0] = 0;
+    if (v->npages > 1u) {
+        tg[0] = (char)('1' + v->page);
+        tg[1] = '/';
+        tg[2] = (char)('0' + v->npages);
+        tg[3] = 0;
+        gw = text_w(&AF_M, tg) + 8;
+    }
+    if (!large_face_has(title) || text_w(tf, title) > room)    /* big with its n/N, else big alone, else smaller */
+        tf = &AF_M;
+    tw = text_w(tf, title);
+    if (tw + gw > room)
+        tg[0] = 0;
+    cv_text_on(tx, tf == &AF_L ? 6 : 13, tf, title, GB_W, bgc);
+    if (tg[0])
+        cv_text_on(tx + tw + 8, tf == &AF_L ? 17 : 13, &AF_M, tg, GB_W, bgc);
+}
+
+/* white mixed into the background: a (0..255) of white */
+static uint16_t gb_mix(uint16_t bg, uint32_t a)
+{
+    uint32_t r = bg >> 11, g = (bg >> 5) & 63u, b = bg & 31u;
+    r += ((31u - r) * a) >> 8;
+    g += ((63u - g) * a) >> 8;
+    b += ((31u - b) * a) >> 8;
+    return (uint16_t)(r << 11 | g << 5 | b);
+}
+
+static void gb_scene(const gb_view_t *v, uint16_t bgc)
+{
+    const uint16_t c = GB_W;                      /* all ink white, the track's colour behind it */
+    uint32_t k;
+    cv_bg = bgc;
+    gb_bg = bgc;
+    if (v->sv) {                                              /* SAVE? / LOAD?: what the keys do; done: it flashes */
+        if (v->flash) {
+            if (v->flash == 1u) {
+                cv_text_in(0, 80, 240, &AF_L, v->msg[0], c, bgc);
+                cv_text_in(0, 124, 240, &AF_L, v->msg[1], c, bgc);
+            }
+            return;
+        }
+        cv_rect(0, 0, 240, GB_HDR, gb_hc);
+        cv_text_on(8, 4, &AF_L, v->sv == 1u ? "SAVE?" : "LOAD?", c, gb_hc);
+        cv_text_r(232, 14, &AF_M, GB_POOL_NAME[gb_pool(v->mach)], c, gb_hc);   /* (the sound pool the keys are) */
+        cv_text_on(8, 42, &AF_L, "SOUND", c, bgc);       /* (all at the title's size) */
+        cv_text_on(8, 70, &AF_L, "WHITE KEY", c, bgc);
+        cv_text_on(8, 108, &AF_L, "KIT", c, bgc);
+        cv_text_on(8, 136, &AF_L, "BLACK KEY", c, bgc);
+        if (v->sv == 1u)
+            cv_text_on(8, 186, &AF_L, "JAM = OCT+", c, bgc);
+        return;
+    }
+    if (v->perf) {
+        static const char *const FN[4] = {"1/16", "1/8", "BAR", "4BAR"};
+        static const char *const RN[4] = {"1/8", "1/16", "1/32", "REV"};
+        char fb[24];
+        uint32_t o = 0;
+        gb_header(v, v->hn > 2u ? "ARP" : "PERF", bgc);
+        for (k = 0; k < 8u; k++) {
+            int32_t tx = 8 + (int32_t)(k & 3u) * 56, ty = 40 + (int32_t)(k >> 2) * 37;
+            int on = v->mac_held[k];
+            char nb[4];
+            nb[0] = 'M'; nb[1] = (char)('1' + k); nb[2] = 0;
+            if (on) {                                         /* held: a bold outline, the inside fills as its cycle runs */
+                int32_t lv = ty + 30 - (int32_t)v->fill[k];
+                gb_oval(tx, ty, 52, 34, GB_W);
+                gb_oval(tx + 4, ty + 4, 44, 26, bgc);
+                gb_ymin = lv;
+                gb_oval(tx + 4, ty + 4, 44, 26, GB_W);
+                gb_ymin = -32768;
+                gb_clip(ty, lv);
+                cv_text_in(tx, ty + 7, 52, &AF_M, nb, GB_W, bgc);
+                gb_clip(lv, ty + 34);
+                cv_text_in(tx, ty + 7, 52, &AF_M, nb, bgc, GB_W);
+                gb_unclip();
+            } else {
+                gb_pill(tx, ty, 52, 34, GB_W, 0);
+                cv_text_in(tx, ty + 7, 52, &AF_M, nb, GB_W, bgc);
+                if (v->mac_n[k])
+                    cv_rect(tx + 24, ty + 27, 4, 3, GB_W);
+            }
+        }
+        for (k = 0; k < 4u; k++) {
+            int32_t tx = 8 + (int32_t)k * 56;
+            int on = v->fade == k + 1u, rp = (v->rpt >> k) & 1u;
+            gb_pill(tx, 114, 52, 26, GB_W, on);
+            cv_text_in(tx, 119, 52, &AF_M, FN[k], on ? bgc : GB_W, on ? GB_W : bgc);
+            gb_pill(tx, 143, 52, 26, GB_W, rp);
+            if (k == 3u)                                      /* REV: its icon */
+                gb_icon(tx + 18, 148, 1, IC_REVERSE, rp ? bgc : GB_W);
+            else
+                cv_text_in(tx, 148, 52, &AF_M, RN[k], rp ? bgc : GB_W, rp ? GB_W : bgc);
+        }
+        {                                                 /* the four knobs: FADE  FILT / COMB  TUNE */
+            char nn[8];
+            uint32_t q;
+            if (!v->rel) {
+                str_cpy(fb, "FADE -", sizeof fb);
+            } else if (v->rel >= 16u) {
+                str_cpy(fb, "FADE BAR", sizeof fb);
+            } else {                                          /* the fraction of a bar, reduced: 1/16 1/8 3/16 1/4 .. */
+                uint32_t n = v->rel, d = 16u;
+                while (!(n & 1u)) { n >>= 1; d >>= 1; }
+                str_cpy(fb, "FADE ", sizeof fb);
+                o = 5u;
+                fmt_int(nn, (int32_t)n);
+                for (q = 0; nn[q]; q++) fb[o++] = nn[q];
+                fb[o++] = '/';
+                fmt_int(nn, (int32_t)d);
+                for (q = 0; nn[q]; q++) fb[o++] = nn[q];
+                fb[o] = 0;
+            }
+            cv_text_on(8, 172, &AF_M, fb, c, bgc);
+            if (v->dj > 1 || v->dj < -1) {                     /* the DJ filter: LP to the left, HP to the right, how far */
+                int32_t a2 = v->dj < 0 ? -v->dj : v->dj;
+                fb[0] = v->dj < 0 ? 'L' : 'H'; fb[1] = 'P'; fb[2] = ' ';
+                fmt_int(nn, a2 * 100 / 64);
+                for (q = 0; nn[q]; q++) fb[3u + q] = nn[q];
+                fb[3u + q] = 0;
+            } else {
+                str_cpy(fb, "FILT -", sizeof fb);
+            }
+            cv_text_r(232, 172, &AF_M, fb, c, bgc);
+            str_cpy(fb, "COMB ", sizeof fb);
+            fmt_int(nn, v->cmix * 100 / 127);
+            for (q = 0; nn[q]; q++) fb[5u + q] = nn[q];
+            fb[5u + q] = 0;
+            cv_text_on(8, 193, &AF_M, fb, c, bgc);
+            str_cpy(fb, "TUNE ", sizeof fb);
+            fmt_int(nn, v->ctune * 100 / 127);
+            for (q = 0; nn[q]; q++) fb[5u + q] = nn[q];
+            fb[5u + q] = 0;
+            cv_text_r(232, 193, &AF_M, fb, c, bgc);
+        }
+        if (v->xf_a || v->xf_b) {                         /* the crossfader: A's and B's macros, where it is */
+            for (k = 0; k < 2u; k++) {
+                uint32_t m = k ? v->xf_b : v->xf_a;
+                int32_t tx = 92 + (int32_t)k * 29;
+                char nb[3] = {(char)('A' + k), m ? (char)('0' + m) : '-', 0};
+                gb_pill(tx, 172, 27, 18, GB_W, m != 0u);
+                cv_text_in(tx, 175, 27, &AF_S, nb, m ? bgc : GB_W, m ? GB_W : bgc);
+            }
+            cv_rect(90, 200, 60, 2, GB_W);
+            cv_rect(90 + (int32_t)v->xf_x - 2, 195, 5, 12, GB_W);
+        }
+        return;
+    }
+    gb_header(v, v->title, bgc);
+    if (v->cross) {                                               /* (the FX track: not its page) */
+        cv_line_t(60, 52, 180, 160, GB_W, 9);
+        cv_line_t(180, 52, 60, 160, GB_W, 9);
+    }
+    for (k = 0; k < 4u; k++) {                                    /* the dials */
+        int32_t cx = 8 + (int32_t)k * 56 + 28, cy = 94, a, px, py, on;
+        uint16_t dc = GB_W, lc = GB_W, bk = bgc;
+        const aafont_t *vf = &AF_L;
+        if (v->zoom)                                              /* (the zoomed waveform in their place) */
+            break;
+        if (!(v->mask & (1u << k)))
+            continue;
+        if (v->alt[k]) {                                          /* held by a macro: a white block, the ink in the track's colour */
+            cv_rrect(cx - 27, 43, 54, 119, 6, GB_W, bgc);
+            dc = lc = bgc;
+            bk = GB_W;
+        }
+        cv_text_in(cx - 28, 48, 56, &AF_M, v->lab[k], lc, bk);   /* (AF_L: 3 letters at most in 56 px) */
+        if ((v->meter >> k) & 1u
+#if BOARD_SMK37
+            && !v->smix
+#endif
+            ) {                                                   /* MIX (FM-1): VOL as a level meter (gb_meters); */
+            if (v->mixer && k == v->ring) {                       /* the selected track's: a frame round it */
+                cv_rect(cx - 13, 64, 26, 2, GB_W);
+                cv_rect(cx - 13, 176, 26, 2, GB_W);
+                cv_rect(cx - 13, 64, 2, 114, GB_W);
+                cv_rect(cx + 11, 64, 2, 114, GB_W);
+            }
+            continue;
+        }
+        for (a = 0; a < 360; a++) {
+            dial_pt(cx, cy, 22, a, &px, &py);
+            cv_rect(px - 1, py - 1, 3, 3, dc);
+        }
+        if (v->mixer && k == v->ring)                             /* the selected track: a second ring */
+            for (a = 0; a < 360; a += 2) {
+                dial_pt(cx, cy, 28, a, &px, &py);
+                cv_rect(px, py, 2, 2, dc);
+            }
+        on = v->ratio[k] * 270 / 1000;
+        dial_pt(cx, cy, 17, 225 + on, &px, &py);
+        cv_line_t(cx, cy, px, py, dc, 3);
+        if (text_w(vf, v->val[k]) > 54 || !large_face_has(v->val[k]))
+            vf = &AF_M;
+        (void)0;                                                  /* (never smaller than AF_M) */
+#if BOARD_SMK37
+        if (v->smix && !((v->vshow >> k) & 1u)) {                 /* MIX: the track's level meter there (gb_meters) */
+        } else
+#endif
+        if (v->vic[k])                                            /* (SAMPLER's MODE: its icon) */
+            gb_icon(cx - 16, 126, 2, v->vic[k], dc);
+        else
+            cv_text_in(cx - 27, vf == &AF_L ? 126 : 134, 54, vf, v->val[k], dc, bk);
+        if (v->pk == k + 1u)                                      /* PARAM: the knob the white keys set, underlined */
+            cv_rrect(cx - 18, 158, 36, 5, 2, GB_W, bgc);
+    }
+    if (v->wv == 1u)                                              /* SAMPLER: the chunk's waveform, or none */
+        cv_text_in(0, 160, 240, &AF_M, "NO SAMPLE", c, bgc);
+    else if (v->wv == 2u && v->zoom) {                           /* zoomed: ~1/6 of the chunk round START or the end */
+        uint32_t sl = v->wkey & 63u, n = sl < smp_n ? smp_tab[sl].len : 0u, w = n / 6u, f = v->zoom == 1u ? v->za : v->zb;
+        int32_t x, y0 = 50, hh = 100, x0, ma, mb, wa;
+        const uint8_t *pk;
+        uint16_t dim = gb_mix(bgc, 90);
+        char zb[20];
+        w = w < GB_WAVE ? GB_WAVE : w;
+        x0 = (int32_t)f - (int32_t)(w / 2u);
+        pk = smp_zpeaks(sl, x0, w);
+        ma = ((int32_t)v->za - x0) * (int32_t)GB_WAVE / (int32_t)w;   /* START, the end: x (< 2^26: 32 bits) */
+        mb = ((int32_t)v->zb - x0) * (int32_t)GB_WAVE / (int32_t)w;
+        for (x = 0; pk && x < (int32_t)GB_WAVE; x++) {
+            int32_t h2 = (int32_t)pk[x] * hh / 512;
+            h2 = h2 < 1 ? 1 : h2;
+            cv_rect(8 + x, y0 + hh / 2 - h2, 1, h2 * 2, x >= ma && x <= mb ? c : dim);
+        }
+        for (wa = 0; wa < 2; wa++) {                              /* the brackets: START [ and the end ] (the one turned: bold) */
+            int32_t mx = wa ? mb : ma, dx = wa ? -4 : 1, bw = wa + 1 == v->zoom ? 3 : 1;
+            if (mx < 0 || mx >= (int32_t)GB_WAVE)
+                continue;
+            cv_rect(8 + mx - bw / 2, y0 - 4, bw, hh + 8, c);
+            cv_rect(8 + mx + dx, y0 - 4, 4, 2, c);
+            cv_rect(8 + mx + dx, y0 + hh + 2, 4, 2, c);
+        }
+        str_cpy(zb, v->lab[v->zoom == 1u ? 2 : 3], sizeof zb);
+        {
+            uint32_t q = 0;
+            while (zb[q])
+                q++;
+            zb[q++] = ' ';
+            str_cpy(zb + q, v->val[v->zoom == 1u ? 2 : 3], sizeof zb - q);
+        }
+        cv_text_in(0, 158, 240, &AF_M, zb, c, bgc);
+    } else if (v->wv == 2u) {
+        const uint8_t *pk = smp_peaks(v->wkey & 63u);
+        uint16_t dim = gb_mix(bgc, 90);                           /* outside the window: the ink at ~35 % */
+        int32_t x, y0 = 160, hh = 18;
+        for (x = 0; pk && x < (int32_t)GB_WAVE; x++) {
+            int32_t h2 = (int32_t)pk[x] * hh / 512;
+            h2 = h2 < 1 ? 1 : h2;
+            cv_rect(8 + x, y0 + hh / 2 - h2, 1, h2 * 2, x >= v->wa && x <= v->wb ? c : dim);
+        }
+        cv_rect(8 + v->wa, y0 - 2, 1, hh + 4, c);                 /* the window's ends */
+        cv_rect(8 + v->wb, y0 - 2, 1, hh + 4, c);
+        cv_rect(8 + v->wa, y0 - 2, 3, 1, c);
+        cv_rect(8 + v->wb - 2, y0 - 2, 3, 1, c);
+    }
+#if BOARD_SMK37
+    if (v->smix)                                                  /* (MIX: no key mode, no machine pill: the faders' room) */
+        return;
+#endif
+    const char *nm = v->fx ? "FX" : MACHINES[v->mach % NMACH].pill;
+    int32_t pw = (text_w(&AF_M, nm) + 17 + (v->picon ? 20 : 0)) & ~1;
+    {                                                             /* what the keys are: left of the pill */
+        static const char *const KM[6] = {"", "SEQ", "PARAM", "KEY", "LOCKS", "ACID"};
+        char kb[20];
+        int32_t x0 = 8, x1 = 232 - pw - 6;
+        const aafont_t *kf = &AF_L;
+        str_cpy(kb, KM[v->kmode % 6u], sizeof kb);
+        if (v->snp > 1u) {                                        /* SEQ over 16 steps: the page shown, "SEQ 2/4" */
+            char pb[6] = {' ', (char)('1' + v->spg), '/', (char)('0' + v->snp), 0, 0};
+            str_cpy(kb + str_len(kb), pb, sizeof kb - str_len(kb));
+        }
+        if (v->kmode == 2u && v->pname[0]) {                      /* PARAM: its knob's name (it stays on other pages) */
+            str_cpy(kb + str_len(kb), " ", sizeof kb - str_len(kb));
+            str_cpy(kb + str_len(kb), v->pname, sizeof kb - str_len(kb));
+        }
+        if (!large_face_has(kb) || text_w(kf, kb) > x1 - x0)
+            kf = &AF_M;
+        cv_text_on(x0, kf == &AF_L ? 180 : kf == &AF_M ? 186 : 188, kf, kb, c, bgc);
+    }
+    gb_pill(232 - pw, 182, pw, 24, c, v->an);                      /* the machine, bottom right: an oval (an 808: filled), */
+    if (v->picon)                                                 /* its icon, its name */
+        gb_icon(232 - pw + 8, 186, 1, v->picon, v->an ? bgc : c);
+    cv_text_on(232 - pw + 8 + (v->picon ? 20 : 0), 185, &AF_M, nm, v->an ? bgc : c, v->an ? c : bgc);
+}
+
+/* LFO held: the touch modulation pop-up (ui.c tm_*): its DEST (or CHOOSE), a big dial for its AMT (up: none) */
+static void gb_popup(const gb_view_t *v, uint16_t bgc)
+{
+    const int32_t cx = 120, cy = 124;
+    const uint16_t ink = bgc, bk = GB_W;              /* (a negative of the page: white, its colour for the ink) */
+    int32_t a, px, py, amt = v->tm_amt, on = amt * 135 / 64;
+    char nb[8], hd[24];
+    const aafont_t *f;
+    str_cpy(hd, TM_SHORT[v->tm_src % 6u], sizeof hd);   /* "LFO > TUNE" */
+    str_cpy(hd + str_len(hd), " > ", sizeof hd - str_len(hd));
+    str_cpy(hd + str_len(hd), v->tm_name, sizeof hd - str_len(hd));
+    f = large_face_has(hd) && text_w(&AF_L, hd) <= 200 ? &AF_L : &AF_M;
+    cv_rrect(14, 42, 212, 152, 12, bk, bgc);
+    cv_text_in(14, f == &AF_L ? 46 : 52, 212, f, hd, ink, bk);
+    for (a = 0; a < 360; a++) {                   /* the ring, and its AMT as a bold arc from the top */
+        int in = on >= 0 ? (a <= on) : (a >= 360 + on || a == 0);
+        dial_pt(cx, cy, 30, a, &px, &py);
+        cv_rect(px - 1, py - 1, 3, 3, ink);
+        if (amt && in) {
+            dial_pt(cx, cy, 37, a, &px, &py);
+            cv_rect(px - 2, py - 2, 5, 5, ink);
+        }
+    }
+    dial_pt(cx, cy, 24, 360 + on, &px, &py);
+    cv_line_t(cx, cy, px, py, ink, 4);
+    fmt_int(nb + (amt > 0 ? 1 : 0), amt);         /* the AMT, big, under the dial */
+    if (amt > 0)
+        nb[0] = '+';
+    cv_text_in(14, 162, 212, &AF_L, nb, ink, bk);
+}
+
+/* a step held + SELECT turned (ui_input.c): its NUDGE on a ruler, -8 .. +7 sixteenths of a step round its grid line
+ * (the long tick) */
+static void gb_nudge(const gb_view_t *v, uint16_t bgc)
+{
+    const uint16_t ink = bgc, bk = GB_W;
+    int32_t n = (int32_t)v->nud - 9, i, x;
+    char nb[8];
+    cv_rrect(14, 42, 212, 152, 12, bk, bgc);
+    cv_text_in(14, 46, 212, &AF_L, "NUDGE", ink, bk);
+    cv_rect(28, 118, 184, 3, ink);                           /* the ruler */
+    for (i = -8; i <= 8; i++) {
+        int32_t h = i == 0 ? 36 : (i & 3) == 0 ? 20 : 10;
+        x = 120 + i * 11;
+        cv_rect(x - (i == 0 ? 1 : 0), 120 - h / 2, i == 0 ? 3 : 1, h, ink);
+    }
+    x = 120 + n * 11;                                        /* the step: a block on its place */
+    cv_rect(x - 5, 92, 11, 14, ink);
+    cv_rect(x - 2, 106, 5, 6, ink);
+    fmt_int(nb + (n > 0 ? 1 : 0), n);
+    if (n > 0)
+        nb[0] = '+';
+    cv_text_in(14, 150, 212, &AF_L, nb, ink, bk);
+}
+
+/* OCT+ held + a knob turned (ui_input.c mom_*): a banner at the bottom, the dials above it still seen */
+static const aafont_t *gb_big(const char *s, int32_t w)   /* the title's size when it fits, else the next */
+{
+    return large_face_has(s) && text_w(&AF_L, s) <= w ? &AF_L : &AF_M;
+}
+static void gb_banner(uint16_t bgc, const char *a, const char *b)   /* a white box, the page's colour for its ink, */
+{                                                                 /* over the bottom line and the track squares */
+    const aafont_t *fa = gb_big(a, 212), *fb = gb_big(b, 212);
+    cv_rrect(8, 160, 224, 74, 12, GB_W, bgc);
+    if (!b[0]) {
+        cv_text_in(8, fa == &AF_L ? 183 : 189, 224, fa, a, bgc, GB_W);
+        return;
+    }
+    cv_text_in(8, fa == &AF_L ? 164 : 170, 224, fa, a, bgc, GB_W);
+    cv_text_in(8, fb == &AF_L ? 198 : 205, 224, fb, b, bgc, GB_W);
+}
+
+/* the overlay, over every page: the loop border (3 px round the edge, clockwise from the top left, white as far as the
+ * loop has got) and the six track squares at the bottom (the track's colour; white on a hit; muted: dark with an X; the
+ * selected one: a thicker edge). direct: straight onto the panel (only these changed), else into the canvas strip */
+static void gb_ovr(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c, int direct)
+{
+    if (!w || !h)
+        return;
+    if (direct)
+        lcd_fill(x, y, w, h, gb_v.all ? (uint16_t)~c : c);     /* (ALL: gb_draw inverts the picture, this is past it) */
+    else
+        cv_rect((int32_t)x, (int32_t)y, (int32_t)w, (int32_t)h, c);
+}
+#define GB_BRD 5u                                 /* the loop border's width */
+static void gb_overlay(const gb_view_t *v, uint16_t bgc, int direct)
+{
+    uint32_t f[4], i, k, q = v->brd;
+    for (i = 0; i < 4u; i++)
+        f[i] = q > i * 240u ? (q - i * 240u < 240u ? q - i * 240u : 240u) : 0u;
+    gb_ovr(f[0], 0, 240 - f[0], GB_BRD, gb_hc, direct);   /* the rest of the way first, then the white (the corners); */
+    if (f[1] < GB_HDR)                                   /* .. the strip's colour across the header */
+        gb_ovr(240 - GB_BRD, f[1], GB_BRD, GB_HDR - f[1], gb_hc, direct);
+    gb_ovr(240 - GB_BRD, f[1] > GB_HDR ? f[1] : GB_HDR, GB_BRD, 240 - (f[1] > GB_HDR ? f[1] : GB_HDR), bgc, direct);
+    gb_ovr(0, 240 - GB_BRD, 240 - f[2], GB_BRD, bgc, direct);
+    gb_ovr(0, 0, GB_BRD, 240 - f[3] < GB_HDR ? 240 - f[3] : GB_HDR, gb_hc, direct);
+    if (240 - f[3] > GB_HDR)
+        gb_ovr(0, GB_HDR, GB_BRD, 240 - f[3] - GB_HDR, bgc, direct);
+    gb_ovr(0, 0, f[0], GB_BRD, GB_W, direct);
+    gb_ovr(240 - GB_BRD, 0, GB_BRD, f[1], GB_W, direct);
+    gb_ovr(240 - f[2], 240 - GB_BRD, f[2], GB_BRD, GB_W, direct);
+    gb_ovr(0, 240 - f[3], GB_BRD, f[3], GB_W, direct);
+    for (k = 0; !v->ban && k < NTRK; k++) {     /* (not under a banner) */
+        /* the track squares (Blair, 2026-11-21): a red dot = recording, a white triangle = a trig playing, a square
+         * black inside = muted, else the square in the track's colour. The selected track: a thick edge on its square,
+         * a bar under it whatever it shows */
+        static const uint8_t DOT[14] = {3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 6, 5, 4, 3};   /* the dot's half width, row by row */
+        uint32_t x = 62u + k * 20u, y = 214u, e = k == v->sel ? 3u : 1u, m = (v->tmute >> k) & 1u;
+        uint32_t st = (v->trecb >> k) & 1u ? 3u : (v->thit >> k) & 1u ? 2u : m ? 1u : 0u;
+        uint16_t bg = v->all && direct ? (uint16_t)~bgc : bgc, ink = GB_W, red = GB_RGB(235, 30, 30);
+        uint16_t in = (v->aout >> k) & 1u ? 0u : st == 1u ? (v->all ? GB_RGB(120, 120, 120) : 0u) : gb_col[k];
+        if (v->all) {                              /* (white pages: the real colours on the inverted picture) */
+            in = (uint16_t)~in;
+            ink = (uint16_t)~ink;
+            red = (uint16_t)~red;
+        }
+        if (st < 2u) {                             /* a square: muted black inside */
+            gb_ovr(x, y, 16, 16, ink, direct);
+            gb_ovr(x + e, y + e, 16 - 2u * e, 16 - 2u * e, in, direct);
+        } else {
+            gb_ovr(x, y, 16, 16, bg, direct);
+            for (i = 0; i < 14u; i++) {
+                if (st == 3u)                      /* recording: the red dot */
+                    gb_ovr(x + 8u - DOT[i], y + 1u + i, 2u * DOT[i], 1, red, direct);
+                else                               /* a trig: the triangle, pointing right (play) */
+                    gb_ovr(x + 2u, y + 1u + i, (i < 7u ? i : 13u - i) * 2u + 2u, 1, ink, direct);
+            }
+        }
+        gb_ovr(x, y + 17u, 16, 2, k == v->sel ? ink : bg, direct);
+#if BOARD_SMK37
+        gb_ovr(x, y - 5u, 16, 3, v->klock == k + 1u ? GB_W : bgc, direct);   /* (KEY LOCK: a bar over the keys' track) */
+#endif
+    }
+}
+
+static uint8_t mt_new[4], mt_px[4], mt_lv[4];      /* the meters: px to show, px shown; the level in half dB (falls) */
+static void mt_geo(const gb_view_t *v, uint32_t k, int32_t *x, int32_t *y0, int32_t *w, int32_t *h)
+{
+    int32_t cx = 36 + (int32_t)k * 56;
+#if BOARD_SMK37
+    if (v->smix) {                                 /* the Elite: under the PAN dial */
+        *x = cx - 7, *w = 14, *y0 = 128, *h = 52;
+        return;
+    }
+#endif
+    (void)v;
+    *x = cx - 8, *w = 16, *y0 = 68, *h = 106;       /* the FM-1: in the VOL dial's place */
+}
+static int mt_on(const gb_view_t *v, uint32_t k)   /* slot k shows a meter now */
+{
+    if (!v->mixer || !((v->meter >> k) & 1u) || v->zoom)
+        return 0;
+#if BOARD_SMK37
+    if ((v->vshow >> k) & 1u)                      /* (a PAN just moved: its number there) */
+        return 0;
+#endif
+    return 1;
+}
+static void mt_update(const gb_view_t *v)          /* each picture: the levels, falling ~40 dB a second */
+{
+    static uint32_t t0;
+    uint32_t k, fall = (fm1_ms - t0) * 2u / 25u;
+    if (fall > 0u || !t0)
+        t0 = fm1_ms;
+    fall = fall > MT_HD ? MT_HD : fall;
+    for (k = 0; k < 4u; k++) {
+        track_t *t = &trk[v->mtk[k] % NTRK];
+        int32_t a, lv = 0, x, y0, w, h, l;
+        if (!((v->meter >> k) & 1u)) {
+            mt_new[k] = mt_lv[k] = 0;
+            continue;
+        }
+        a = t->peak;
+        t->peak = 0;                               /* (the audio's max since the last look; a block lost to the race: harmless) */
+        if (a > 0 && !((v->vmute >> k) & 1u)) {   /* half dB = 12.04 log2(a / 2^22) + MT_HD - 15: a voice's usual peak (-6 dB of
+                                                   * the mix's full scale, dsp.c VOICE_FS) at this VOL reaches the line */
+            uint32_t z = (uint32_t)__builtin_clz((uint32_t)a), lg = (31u - z) << 8 | (((uint32_t)a << z << 1) >> 24);
+            lv = (((int32_t)lg - 22 * 256) * 3082 >> 16) + MT_HD - 15;
+        }
+        l = mt_lv[k] > (int32_t)fall ? mt_lv[k] - (int32_t)fall : 0;
+        lv = lv > l ? lv : l;
+        lv = lv < 0 ? 0 : lv > v->vol[k] ? v->vol[k] : lv;   /* (it stops at the white line) */
+        mt_lv[k] = (uint8_t)lv;
+        mt_geo(v, k, &x, &y0, &w, &h);
+        mt_new[k] = (uint8_t)(lv * h / MT_HD);
+    }
+}
+static void mt_rows(int32_t x, int32_t yb, int32_t w, int32_t h, int32_t a, int32_t b, int direct)   /* the lit rows a..b-1 */
+{
+    static const uint16_t MC[3] = {GB_RGB(255, 214, 10), GB_RGB(255, 130, 0), GB_RGB(255, 36, 24)};
+    int32_t z[4] = {0, MT_OR * h / MT_HD, MT_RD * h / MT_HD, h}, i;
+    for (i = 0; i < 3; i++) {
+        int32_t p = a > z[i] ? a : z[i], q = b < z[i + 1] ? b : z[i + 1];
+        if (q > p)
+            gb_ovr((uint32_t)x, (uint32_t)(yb - q), (uint32_t)w, (uint32_t)(q - p), MC[i], direct);
+    }
+}
+static void gb_meters(const gb_view_t *v, int direct)   /* direct: only what moved, onto the panel; else the whole meters */
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        int32_t x, y0, w, h, yb, pl, o = mt_px[k], n = mt_new[k];
+        if (!mt_on(v, k))
+            continue;
+        mt_geo(v, k, &x, &y0, &w, &h);
+        yb = y0 + h;
+        if (!direct) {                             /* the line (dark grey muted), 3 px wider each side, and the meter */
+            pl = v->vol[k] * h / MT_HD;
+            pl = pl > h - 2 ? h - 2 : pl;
+            gb_ovr((uint32_t)(x - 3), (uint32_t)(yb - pl - 2), (uint32_t)(w + 6), 2,
+                   (v->vmute >> k) & 1u ? GB_RGB(90, 90, 90) : GB_W, 0);
+            mt_rows(x, yb, w, h, 0, n, 0);
+        } else if (n > o)
+            mt_rows(x, yb, w, h, o, n, 1);
+        else if (n < o)
+            gb_ovr((uint32_t)x, (uint32_t)(yb - o), (uint32_t)w, (uint32_t)(o - n), GB_K, 1);
+        mt_px[k] = (uint8_t)n;
+    }
+}
+static int mt_free(const gb_view_t *v)             /* nothing over the meters: they may be drawn straight on */
+{
+    return v->mixer && v->meter && !v->bn && v->tmod != 2u && !v->nud;
+}
+
+#if BOARD_SMK37
+static void smk_fast(void);                       /* (main.c) */
+#endif
+static void gb_draw(void)
+{
+    uint32_t i, s, mono, light, nstrip;
+    uint16_t c;
+    const uint8_t *a, *b;
+    gb_fill(&gb_v);
+    if (sl_pop()) {                               /* two steps held: the slide's menu in place of the page's dials */
+        memset(gb_v.lab, 0, sizeof gb_v.lab);
+        memset(gb_v.val, 0, sizeof gb_v.val);
+        memset(gb_v.ratio, 0, sizeof gb_v.ratio);
+        memset(gb_v.alt, 0, sizeof gb_v.alt);
+        memset(gb_v.vic, 0, sizeof gb_v.vic);
+        gb_v.wv = gb_v.zoom = gb_v.mixer = 0;
+        gb_v.mask = 7u;
+        sl_view(gb_v.title, 0u, gb_v.lab, gb_v.val, gb_v.ratio);
+    }
+    c = gb_v.all ? GB_RGB(52, 52, 52) : gb_v.fx ? GB_RGB(120, 128, 140) : gb_col[gb_v.sel % NTRK];   /* (the FX lane: grey; ALL: light when inverted) */
+    mt_update(&gb_v);
+    a = (const uint8_t *)&gb_v;
+    b = (const uint8_t *)&gb_last;
+    for (i = 0; i < sizeof gb_v && a[i] == b[i]; i++)
+        ;
+    if (!ui.force && gb_have && i == sizeof gb_v) {
+        if (mt_free(&gb_v))
+            gb_meters(&gb_v, 1);
+        return;
+    }
+    {                                             /* only the border or a square's hit changed: those, straight on */
+        gb_view_t t = gb_v;
+        t.thit = gb_last.thit;
+        t.trecb = gb_last.trecb;
+        t.brd = gb_last.brd;
+        if (!ui.force && gb_have && !memcmp(&t, &gb_last, sizeof t)) {
+            gb_last = gb_v;
+            gb_hc = c;
+            gb_overlay(&gb_v, GB_K, 1);
+            if (mt_free(&gb_v))
+                gb_meters(&gb_v, 1);
+            return;
+        }
+    }
+    {                                             /* only the drum flash or REC's glow changed: just the header's strip */
+        gb_view_t t = gb_v;
+        t.hit = gb_last.hit;
+        t.thit = gb_last.thit;
+        t.trecb = gb_last.trecb;
+        t.brd = gb_last.brd;
+        if (t.rec && gb_last.rec)
+            t.rec = gb_last.rec;
+        nstrip = !ui.force && gb_have && !memcmp(&t, &gb_last, sizeof t) ? 1u : 240u / GB_STRIP;
+    }
+    gb_last = gb_v;
+    gb_have = 1;
+    mono = ux.mono;                               /* the text ramps in colour on black whatever the palette (restored below) */
+    light = ux.light;
+    if (mono || light) {
+        ux.mono = 0;
+        ux.light = 0;
+        ux.gen++;
+    }
+    gb_hc = c;
+    for (s = 0; s < nstrip; s++) {
+        cv_begin(240, GB_STRIP, GB_K);
+        cv_oy = -(int32_t)(s * GB_STRIP);
+        gb_scene(&gb_v, GB_K);
+        if (nstrip > 1u)
+            gb_meters(&gb_v, 0);                  /* (MIX: the level meters, under any pop-up) */
+        if (gb_v.tmod == 2u)
+            gb_popup(&gb_v, c);
+        else if (gb_v.nud)
+            gb_nudge(&gb_v, c);
+        else if (gb_v.bn)                         /* a banner: its page */
+            gb_banner(c, gb_v.bt[2u * gb_v.bpg], gb_v.bt[2u * gb_v.bpg + 1u]);
+        gb_overlay(&gb_v, GB_K, 0);
+        cv_oy = 0;
+        if (gb_v.all) {                           /* ALL: black on white, the whole picture */
+            uint32_t q;
+            for (q = 0; q < cv_w * cv_h; q++)
+                cv_px[q] = (uint16_t)~cv_px[q];
+        }
+        cv_blit(0, s * GB_STRIP);
+#if BOARD_SMK37
+        smk_fast();                               /* (between strips: the faders and MASTER don't wait for the picture) */
+#endif
+    }
+    if (nstrip == 1u) {                           /* (the header's strip only: the rest of the overlay may have moved) */
+        gb_overlay(&gb_v, GB_K, 1);
+        if (mt_free(&gb_v))
+            gb_meters(&gb_v, 1);
+    }
+    if (mono || light) {
+        ux.mono = (typeof(ux.mono))mono;
+        ux.light = (typeof(ux.light))light;
+        ux.gen++;
+    }
+}

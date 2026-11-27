@@ -1,0 +1,62 @@
+/* Screen pictures from the emulator, for checking layouts without the browser.
+ *   cc -O1 -ffp-contract=off -w -Ibuild/gen -Ifirmware/src -Iweb/emu -o build/emu_shot tools/emu_shot.c -lm
+ *   build/emu_shot tap:0 hold:9 enc:4,1 rel a.ppm   (tap:/hold: button number (panel.c B_*), rel, key:n, enc:role,steps,
+ *   keyd:n (held) keyu, wav:F (2 s of the left channel, float32), playing? (prints), state?, tapms:button,ms, ms:n, any other word = save the screen there as PPM) */
+#include <time.h>
+#include "felucca_web.c"
+static FILE *recf;   /* rec:F .. the left channel of everything that runs after it, float32 */
+static void run(double ms){ uint32_t n=(uint32_t)(ms*44.1), k; for(k=0;k<n;k+=128){ web_render(128); if(recf) fwrite(out_l,4,128,recf);} }
+static void tap(uint32_t b){ web_buttons(1u<<b); run(80); web_buttons(0); run(150); }
+static void dump(const char *fn){ FILE *f=fopen(fn,"wb"); fprintf(f,"P6 240 240 255\n"); for(int i=0;i<240*240;i++){ uint16_t c=web_fb[i]; c=(uint16_t)((c>>8)|(c<<8)); fputc((c>>11)<<3,f); fputc(((c>>5)&63)<<2,f); fputc((c&31)<<3,f);} fclose(f);}
+int main(int argc,char**argv){
+  web_nor_erase();
+  if(argc>1 && !strncmp(argv[1],"nor:",4)) { FILE *f=fopen(argv[1]+4,"rb"); if(f){ fread(nor,1,sizeof nor,f); fclose(f);} argv++; argc--; }   /* the flash of an earlier run */
+  web_boot(); run(4000);
+  for(int a=1;a<argc;a++){ char *s=argv[a];
+    if(!strncmp(s,"rec:",4)) recf=fopen(s+4,"wb");
+    else if(!strncmp(s,"recstop",7)){ fclose(recf); recf=0; }
+    else if(!strncmp(s,"smploop:",8)) { int n,rate,hits; sscanf(s+8,"%d,%d,%d",&n,&rate,&hits); for(int i=0;i<n;i++){ int per=n/hits, ph=i%per; double v=30000*exp(-ph*40.0/rate)*sin(6.283185307*(ph*300.0/rate)); int b=0,bd=1<<30; for(int k=0;k<256;k++){int e=abs(SMP_ULAW[k]-(int)v); if(e<bd){bd=e;b=k;}} ((uint8_t*)nor)[SMP_DATA+i]=(uint8_t)b; } smp_tab[0].off=SMP_DATA; smp_tab[0].len=n; smp_tab[0].rate=rate; smp_n=1; }   /* slot 0: a drum loop, n samples at rate, hits decaying hits */
+    else if(!strncmp(s,"smptest:",8)) { int n; sscanf(s+8,"%d",&n); for(int i=0;i<n;i++){ double f=i<n/2?500:2000, v=32000*sin(6.283185307*f*i/22050.0); int b=0,bd=1<<30; for(int k=0;k<256;k++){int e=abs(SMP_ULAW[k]-(int)v); if(e<bd){bd=e;b=k;}} ((uint8_t*)nor)[SMP_DATA+i]=(uint8_t)b; } smp_tab[0].off=SMP_DATA; smp_tab[0].len=n; smp_tab[0].rate=22050; smp_n=1; }   /* slot 0: half 500 Hz, half 2 kHz at 22 kHz (not uploaded: no table) */
+    else if(!strncmp(s,"cc:",3)) { int c,v; sscanf(s+3,"%d,%d",&c,&v); web_midi(0xB0,c,v); run(5); }   /* a CC in, channel 1 */
+    else if(!strncmp(s,"mac:",4)) { int m,t,i,v; sscanf(s+4,"%d,%d,%d,%d",&m,&t,&i,&v); perf_mac_t *pm=&pm_mac[m]; pm->trk[pm->n]=(uint8_t)t; pm->id[pm->n]=(uint8_t)i; pm->val[pm->n]=(int16_t)v; pm->n++; }   /* macro m holds track t's id (t 255: a global) at v */
+    else if(!strncmp(s,"pv:",3)) { int t,i; sscanf(s+3,"%d,%d",&t,&i); printf("%d\n", t==255?song.g[i]:trk[t].p[i]); }   /* one value */
+    else if(!strncmp(s,"tap:",4)) tap((uint32_t)atoi(s+4));
+    else if(!strncmp(s,"ms:",3)) run(atof(s+3));
+    else if(!strncmp(s,"hold:",5)) { web_buttons(1u<<atoi(s+5)); run(80);} 
+    else if(!strncmp(s,"both:",5)) { int a2,b2; sscanf(s+5,"%d,%d",&a2,&b2); web_buttons(1u<<a2); run(120); web_buttons((1u<<a2)|(1u<<b2)); run(100); web_buttons(1u<<a2); run(80); web_buttons(0); run(150);}
+    else if(!strcmp(s,"rel")) { web_buttons(0); run(150);} 
+    else if(!strncmp(s,"key:",4)) { web_keys(1u<<atoi(s+4)); run(80); web_keys(0); run(100);} 
+    else if(!strncmp(s,"keym:",5)) { web_keys((unsigned)strtoul(s+5,0,0)); run(10);}   /* the key bits as they are (several held) */
+    else if(!strncmp(s,"keyz:",5)) web_keys((unsigned)strtoul(s+5,0,0));   /* the keys, no time passing */
+    else if(!strncmp(s,"keyd:",5)) { web_keys(1u<<atoi(s+5)); run(100);} 
+    else if(!strcmp(s,"keyu")) { web_keys(0); run(100);} 
+    else if(!strncmp(s,"wavx:",5)) { char fn[256]; int r,k; sscanf(s+5,"%255[^,],%d,%d",fn,&r,&k); FILE *f=fopen(fn,"wb"); for(int b=0;b<689;b++){ if(b%10==0 && k){ web_enc(r,k<0?-1:1); k+=k<0?1:-1; } run(0); web_render(128); fwrite(out_l,4,128,f);} fclose(f);}   /* 2 s, the encoder turned a step every 10 blocks */
+    else if(!strncmp(s,"wav:",4)) { FILE *f=fopen(s+4,"wb"); for(int b=0;b<689;b++){ web_render(128); fwrite(out_l,4,128,f);} fclose(f);} 
+    else if(!strncmp(s,"bench:",6)) { struct timespec a0,a1; double ms=atof(s+6); clock_gettime(CLOCK_MONOTONIC,&a0); run(ms); clock_gettime(CLOCK_MONOTONIC,&a1); double us=(a1.tv_sec-a0.tv_sec)*1e6+(a1.tv_nsec-a0.tv_nsec)/1e3; int busy=0; for(int p=0;p<NPART;p++) for(int i=0;i<NVOICE;i++) busy+=trk[p].v[i].active; printf("host %.1f%% of real time, kills=%u voices=%d\n", us/(ms*10.0), voice_kills, busy); }
+    else if(!strcmp(s,"oct?")) printf("sel=%u oct=%d sgrid=%u\n", song.sel, song.octave, ui.sgrid);
+    else if(!strcmp(s,"state?")) printf("sgrid=%u page=%u ly=%u lyt0=%u tm=%u hint=%u msg=%u grid=%u\n", ui.sgrid, ui.page, ui.ly, ui.ly_t0 & 15u, tm_dn, gb_hint, ui.msg_t, song.grid);
+    else if(!strncmp(s,"tapms:",6)) { int b,d; sscanf(s+6,"%d,%d",&b,&d); web_buttons(1u<<b); run(d); web_buttons(0); run(120);} 
+    else if(!strcmp(s,"playing?")) printf("playing=%u\n", web_playing());
+    else if(!strncmp(s,"encx:",5)) { int r,n; sscanf(s+5,"%d,%d",&r,&n); for(int i=0;i<(n<0?-n:n);i++){ web_enc(r,n<0?-1:1); run(30);} }
+    else if(!strcmp(s,"acid?")) { acid_t *a=acid_of(song.sel); uint32_t k=song.sel; printf("play=%u len=%u dir=%u sel=%u go=%u st=%u pul=%u nx=%u seq_n=%u note=%u hold=%u page=%s sgrid=%u grid=%u\n", a->play,a->stages,a->dir,acid_sel[k],acid_rt[k].go,acid_rt[k].st,acid_rt[k].pul,acid_rt[k].nx,trk[k].seq_n,trk[k].seq_notes[0],trk[k].seq_hold,PAGES[ui.page].title,ui.sgrid,song.grid); }
+    else if(!strcmp(s,"vox?")) { track_t *t=TSEL; for(int i=0;i<NVOICE;i++) if(t->v[i].active) printf(" v%d n%u g%u st%u pc%d p%d", i, t->v[i].note, t->v[i].gate, t->v[i].stage, t->v[i].pitch_cur, t->v[i].pitch16); printf("\n"); }
+    else if(!strcmp(s,"idx?")) { printf("mst=%u fx=%u:", mst_step, fxl_pos); for(int i=0;i<NTRK;i++) printf(" %u(%u)", trk[i].seq_idx, trk[i].seq_pos); printf("\n"); }
+    else if(!strcmp(s,"nt?")) { for(int i=0;i<NTRK;i++){ printf(" T%d:", i+1); for(int j=0;j<lastc[i];j++) printf("%u,", lastn[i][j]); } printf("\n"); }
+    else if(!strcmp(s,"p?")) { for(int i=0;i<P_COUNT;i++) printf("%d:%d ",i,trk[song.sel].p[i]); printf("\n"); }   /* the selected track's values */
+    else if(!strcmp(s,"mach?")) { for(int i=0;i<NTRK;i++) printf("%s%s ", i==song.sel?"*":"", MACHINES[trk_mach(&trk[i])].pill); printf(" pools:"); for(int q=0;q<GB_NPOOL;q++){ printf(" %s=",GB_POOL_NAME[q]); for(int k=0;k<16;k++) printf("%d",gbs_used(q,k)?1:0);} printf(" gbsv=%u\n",gbsv); }
+    else if(!strncmp(s,"norsave:",8)) { FILE *f=fopen(s+8,"wb"); fwrite(nor,1,sizeof nor,f); fclose(f); }
+    else if(!strcmp(s,"bpm?")) printf("bpm=%d sel=%u kitkeys=%u motion=%u\n", song.g[G_BPM], song.sel, (unsigned)({int c=0; for(int a=0;a<NTRK;a++) for(int b=0;b<16;b++) c+=kit[a][b].n; c;}), motion.count);
+    else if(!strcmp(s,"all?")) { for(int k=0;k<NTRK;k++){ track_t *t=&trk[k]; printf("T%d:",k+1); for(int i=0;i<NSTEP;i++){ step_t *st=&t->step[i]; if(st->time==ST_NOTE&&st->n) printf(" %d(nd%d)", i, (int)step_nudge(st)); } printf("\n"); } }
+    else if(!strcmp(s,"steps?")) { track_t *t=TSEL; printf("len=%d bank=%u qntz=%d idx=%u:", t->p[P_SLEN], ui.bank, t->p[P_SQNT], t->seq_idx); for(int i=0;i<NSTEP;i++){ step_t *st=&t->step[i]; if(st->time==ST_NOTE&&st->n) printf(" %d[n%u nd%d tc%u]", i, st->n, (int)step_nudge(st), gb_tc(st)); } printf("\n"); }
+    else if(!strcmp(s,"m1?")) printf("m1 src=%d dst=%d amt=%d tm_dn=%u\n", TSEL->p[P_M1SRC], TSEL->p[P_M1DST], TSEL->p[P_M1AMT], tm_dn);
+    else if(!strcmp(s,"fx?")) printf("sel=%u fxt=%u page=%s amp=%d L1=%d/%d/%d/%d L2=%d/%d/%d/%d dly=%d trig=%llx len=%d lk0=%x v0amp=%d ov=%u pos=%u\n", song.sel, fxl_sel, PAGES[ui.page].title, song.g[G_AMP], song.g[G_F1RATE], song.g[G_F1WAVE], song.g[G_F1DEST], song.g[G_F1AMT], song.g[G_F2RATE], song.g[G_F2WAVE], song.g[G_F2DEST], song.g[G_F2AMT], TSEL->p[P_DLY], (unsigned long long)fxl.trig, fxl.len, fxl.lk[0], fxl.v[0][11], mg_ov_n, fxl_pos);
+    else if(!strncmp(s,"mach:",5)) { int t,m; sscanf(s+5,"%d,%d",&t,&m); machine_set(&trk[t],(uint32_t)m); run(100); }   /* track t to machine m (engines.c MACHINES row) */
+    else if(!strncmp(s,"p:",2)) { int t,i,v; sscanf(s+2,"%d,%d,%d",&t,&i,&v); trk[t].p[i]=(int16_t)v; }   /* a parameter (core.h P_* number) set straight */
+    else if(!strcmp(s,"dests?")) { const param_desc_t *d=&TP[P_M1DST]; song.sel=0; for(int m=0;m<(int)NELEM(MACHINES);m++){ machine_set(&trk[0],(uint32_t)m); run(50); printf("%s:",MACHINES[m].pill); int v=0,n=0; for(;;){ int w=param_turn(d,v,1); if(w==v) break; v=w; n++; printf(" %s",tm_name(&trk[0],(uint32_t)v)); } int b=0,c=0; for(;;){ int w=param_turn(d,v,-1); if(w==v) break; v=w; c++; } int big=param_turn(d,0,1000); printf("  [n=%d back=%d end=%s gaugeEnd=%d]\n",n,c,tm_name(&trk[0],(uint32_t)big),enum_rank(d,big)); } }   /* each machine's LFO DEST list, walked by the knob
+    else if(!strcmp(s,"play")) { web_buttons(1u<<B_PLAY); run(60); web_buttons(0); }   /* PLAY pressed and let go (60 ms) */
+    else if(!strncmp(s,"st:",3)) { int t; unsigned m; sscanf(s+3,"%d,%x",&t,&m); for(int i=0;i<16;i++){ step_t *st=&trk[t].step[i]; memset(st,0,sizeof *st); if(m>>i&1){ st->time=ST_NOTE; st->n=(uint8_t)grid_chord(&trk[t],st->note); st->vel=100; } } trk[t].p[P_SLEN]=16; }   /* track t's 16 steps from a bit mask (hex) */
+    else if(!strncmp(s,"wavn:",5)) { char fn[256]; double ms; sscanf(s+5,"%255[^,],%lf",fn,&ms); FILE *f=fopen(fn,"wb"); for(int b=0;b<(int)(ms*44.1/128);b++){ web_render(128); fwrite(out_l,4,128,f);} fclose(f);}   /* ms of the left channel */
+    else if(!strncmp(s,"enc:",4)) { int r,n; sscanf(s+4,"%d,%d",&r,&n); web_enc(r,n); run(100);} 
+    else dump(s);
+  }
+  return 0; }
