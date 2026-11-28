@@ -25,6 +25,14 @@ How a port works:
   - the SPI NOR (saves): real flash in the ROM's own slot, below its tag (build.rs `nor`), or RAM if it has none
   - flash objects read in place (samples, presets) come from the image in program flash
   - no console, no getenv, no threads, no clock_gettime (stub them as the other ports do)
+- MIDI (every port should have it): the Teensy's USB is a MIDI port and the FM-1's TRS jack (MIDI IN) is passed on.
+  The port's felucca_teensy.c exports three functions (read source/docs/MIDI.md, copy from source/ports/jambox for a
+  Felucca fork, or source/ports/x0x for a firmware with its own MIDI queues):
+  - teensy_midi_in(status, d1, d2, source): one whole message, source 1 = USB, 2 = TRS: put it where the firmware's
+    own MIDI input goes (Felucca forks: midi_enqueue in usb.c). Notes, CCs, clock, start, continue, stop.
+  - teensy_midi_link(on): 1 while a computer has the USB MIDI port (Felucca forks: usb.config = on).
+  - teensy_midi_out(out, cap): hand over the firmware's MIDI out as USB-MIDI packets (Felucca forks: drain midi_out_q).
+  Without them the port still builds (empty defaults), but it has no MIDI.
 - Add the firmware to source/build.rs (a `Fw` entry: dir, version, name, includes, extra C files, defines, stem,
   nor) and to the ROMS list in source/build.sh. The stem is its file name on the card: 8 capital letters at most.
 - Memory is tight: about 384 KB ITCM (code), 128 KB DTCM (data and stack), 512 KB OCRAM. If the code is too big for
@@ -35,7 +43,9 @@ What I want from you:
 1. Clone the repo and the firmware. Check its licence and tell me if it can't be ported.
 2. Port it, build it with source/build.sh, and fix every error.
 3. It must build for all three slots: roms/<STEM>.R1, .R2 and .R3.
-4. Tell me which files to copy to my SD card's ROMS folder, and what to test.
+4. Tell me which files to copy to my SD card's ROMS folder, and what to test, MIDI included: with the Teensy plugged
+   into a computer it shows up as the MIDI device "BBL Mod Swapper (<name>)"; send it notes and clock, play the FM-1's
+   keys and check MIDI comes back; and MIDI into the FM-1's TRS jack.
 5. Write a short list of everything you changed, for my port post.
 
 Ask me before you change anything outside ports/<name>/, build.rs and build.sh.
