@@ -69,13 +69,14 @@ MORE.sort(key=lambda r: r[1].lower())
 SRC = "https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/"
 # one list: the popular ones first (porter-tested), then the rest A-Z (untested)
 ROWS = [(st, n, v, by, link, "GPL", f"{SRC}{st.lower()}", "porter tested") for st, n, v, by, link, what, status in PORTS] + \
-       [(st, n, v, own, url, lic, f"{st}/{st}-source.zip", "untested") for st, n, v, own, url, lic in MORE]
+       [(st, n, v, own, url, lic, f"{st}/{st}-source.zip", "untested") for st, n, v, own, url, lic, *_ in MORE]
+MIDI = {r[0] for r in MORE if r[6:7] == ["MIDI"]}   # rebuilt with MIDI (USB + the FM-1's jack), 28 Nov 2026
 rows = []
 for stem, name, ver, owner, url, lic, src, stat in ROWS:
     dl = ' download' if src.endswith('.zip') else ' target="_blank" rel="noopener"'
     cls = "chip ok" if stat == "porter tested" else "chip"
     rows.append(f"""    <tr data-n="{html.escape((name + ' ' + owner).lower())}"><td>{html.escape(name)} <span class="ver">{html.escape(ver)}</span></td>
-      <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a> <span class="ver">{lic}</span></td><td><span class="{cls}">{stat}</span></td>
+      <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a> <span class="ver">{lic}</span></td><td><span class="{cls}">{stat}</span>{' <span class="chip ok">MIDI</span>' if stem in MIDI else ''}</td>
       <td><a class="btn sm" href="{stem}/{stem}.zip" download>DOWNLOAD</a> <a class="src" href="{src}"{dl}>source</a></td></tr>""")
 opts = "\n".join([f'          <option>{html.escape(n)} {v}</option>' for _, n, v, *_ in PORTS] + [f'          <option>{html.escape(n)} {v} (untested)</option>' for _, n, v, *_ in MORE])
 
@@ -103,7 +104,8 @@ body = f"""{css}</style>
     <tr><th>Port</th><th>Original by</th><th>Status</th><th></th></tr>
 {chr(10).join(rows)}
   </table></div>
-  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code the build was made from, with the porting changes. The menu shows up to 160 firmwares (release 1.1).</p>
+  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code the build was made from, with the porting changes. The menu shows up to 160 firmwares (release 1.1).
+  <span class="chip ok">MIDI</span> = the Teensy's USB works as a MIDI port, in and out (plug it into a computer). The FM-1's own MIDI jack as MIDI in comes with release 1.2.</p>
 </section>
 
 <section class="pop" id="card">
