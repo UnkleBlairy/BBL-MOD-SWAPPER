@@ -9,7 +9,7 @@ PAGE = "https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/"
 
 # stem, name, version, by, by link, what it is, status (UNCONFIRMED until someone other than its porter tests it)
 PORTS = [
-    ("JAMBOX", "BBL Jam Box", "0.9", "Blairy (blairysbeatlab)", "https://github.com/UnkleBlairy/BBL-JAM-BOX",
+    ("JAMBOX", "BBL Jam Box", "1.0.1", "Blairy (blairysbeatlab)", "https://github.com/UnkleBlairy/BBL-JAM-BOX",
      "Live-jamming groovebox: 6 tracks, p-locks, trig conditions, the Sample Lab.", "UNCONFIRMED"),
     ("JIANT", "JIANT FM", "0.9.18", "juanjiant-bit", "https://github.com/juanjiant-bit/JIANT",
      "Six tracks, eleven synth engines, a 64-step sequencer, songs and a generator.", "UNCONFIRMED"),
@@ -70,7 +70,7 @@ SRC = "https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports
 # one list: the popular ones first (porter-tested), then the rest A-Z (untested)
 ROWS = [(st, n, v, by, link, "GPL", f"{SRC}{st.lower()}", "porter tested") for st, n, v, by, link, what, status in PORTS] + \
        [(st, n, v, own, url, lic, f"{st}/{st}-source.zip", "untested") for st, n, v, own, url, lic, *_ in MORE]
-MIDI = {r[0] for r in MORE if r[6:7] == ["MIDI"]}   # rebuilt with MIDI (USB + the FM-1's jack), 28 Nov 2026
+MIDI = {r[0] for r in MORE if r[6:7] == ["MIDI"]} | {r[0] for r in PORTS}   # (with the top four) rebuilt with MIDI (USB + the FM-1's jack), 28 Nov 2026
 rows = []
 for stem, name, ver, owner, url, lic, src, stat in ROWS:
     dl = ' download' if src.endswith('.zip') else ' target="_blank" rel="noopener"'
@@ -105,7 +105,7 @@ body = f"""{css}</style>
 {chr(10).join(rows)}
   </table></div>
   <p class="note">Every one keeps its original authors' credits and licence. "source" is the code the build was made from, with the porting changes. The menu shows up to 160 firmwares (release 1.1).
-  <span class="chip ok">MIDI</span> = the Teensy's USB works as a MIDI port, in and out (plug it into a computer). The FM-1's own MIDI jack as MIDI in comes with release 1.2.</p>
+  <span class="chip ok">MIDI</span> = the Teensy's USB works as a MIDI port, in and out (plug it into a computer). The FM-1's own MIDI jack works as MIDI in too, with Mod Swapper 1.2 (<a href="../webapp/installer/">installer</a>).</p>
 </section>
 
 <section class="pop" id="card">
