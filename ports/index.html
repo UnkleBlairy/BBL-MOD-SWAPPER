@@ -61,7 +61,7 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
 .port .row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
 .port .name { font-size: 20px; }
 .port .ver { color: #555; }
-.chip { font-size: 13px; padding: 1px 8px; border: 2px solid #c8006a; color: #c8006a; }
+.chip { font-size: 13px; white-space: nowrap; padding: 1px 8px; border: 2px solid #c8006a; color: #c8006a; }
 .chip.ok { border-color: #000; color: #000; }
 .port .by { font-size: 14px; color: #444; margin-bottom: 6px; }
 .port p { margin-bottom: 8px; }
@@ -79,8 +79,9 @@ textarea { min-height: 120px; resize: vertical; }
 .sent { background: var(--pink); color: #000; padding: 10px 14px; margin: 18px 0 0; display: none; }
 .btn.sm { padding: 2px 10px; font-size: 14px; }
 a.src { font-size: 13px; color: #555; }
-#more td { vertical-align: middle; }
-#more .ver { color: #777; font-size: 13px; }
+#list td { vertical-align: middle; }
+#list td:last-child { white-space: nowrap; }
+#list .ver { color: #777; font-size: 13px; }
 #find { margin-bottom: 10px; width: calc(100% - 32px); }
 pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-monospace, monospace; white-space: pre-wrap;
   max-height: 320px; overflow: auto; margin-bottom: 10px; }
@@ -94,389 +95,371 @@ pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-mo
 </header>
 
 <nav class="toc">
-  <a href="#list">LIST</a><a href="#more">MORE PORTS (113)</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
+  <a href="#list">PORTS (117)</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
 </nav>
 
 <div class="sent" id="sent" role="status">Thanks! Your report is on its way to Blairy.</div>
 
 <section class="pop" id="list">
-  <h2>Ports</h2>
+  <h2>Ports (117)</h2>
   <p><button class="btn big" type="button" id="all">DOWNLOAD ALL</button><span class="size" id="all-size">every port on this page, in one zip</span></p>
-  <div class="port">
-    <div class="row"><span class="name">BBL Jam Box</span><span class="ver">0.9</span><span class="chip">UNCONFIRMED</span></div>
-    <div class="by">By <a href="https://github.com/UnkleBlairy/BBL-JAM-BOX" target="_blank" rel="noopener">Blairy (blairysbeatlab)</a>. Ported by Blairy.</div>
-    <p>Live-jamming groovebox: 6 tracks, p-locks, trig conditions, the Sample Lab.</p>
-    <a class="btn" href="JAMBOX/JAMBOX.zip" download>DOWNLOAD</a><span class="size">1.0 MB zip</span>
-  </div>
-  <div class="port">
-    <div class="row"><span class="name">JIANT FM</span><span class="ver">0.9.18</span><span class="chip">UNCONFIRMED</span></div>
-    <div class="by">By <a href="https://github.com/juanjiant-bit/JIANT" target="_blank" rel="noopener">juanjiant-bit</a>. Ported by Blairy.</div>
-    <p>Six tracks, eleven synth engines, a 64-step sequencer, songs and a generator.</p>
-    <a class="btn" href="JIANT/JIANT.zip" download>DOWNLOAD</a><span class="size">1.9 MB zip</span>
-  </div>
-  <div class="port">
-    <div class="row"><span class="name">SLOOP</span><span class="ver">2.8.5</span><span class="chip">UNCONFIRMED</span></div>
-    <div class="by">By <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">isod89</a>. Ported by Blairy.</div>
-    <p>Four-track groovebox: three synths and a drum machine, 37 kits, your own samples through the Sample Lab (FX + GLO).</p>
-    <a class="btn" href="SLOOP/SLOOP.zip" download>DOWNLOAD</a><span class="size">1.6 MB zip</span>
-  </div>
-  <div class="port">
-    <div class="row"><span class="name">X0X</span><span class="ver">1.2.2</span><span class="chip">UNCONFIRMED</span></div>
-    <div class="by">By <a href="https://github.com/charlesvestal/fm1-x0x" target="_blank" rel="noopener">Charles Vestal</a>. Ported by Blairy.</div>
-    <p>A 909, an 808, two 303s with an acid generator and a breakbeat player, all at once.</p>
-    <a class="btn" href="X0X/X0X.zip" download>DOWNLOAD</a><span class="size">1.3 MB zip</span>
-  </div>
-  <p class="note"><b class="pink">UNCONFIRMED</b> means only its porter has tested it so far. Tried one? Tell us below, it helps everyone.</p>
-</section>
-
-<section class="pop" id="more">
-  <h2>More ports: 113 untested</h2>
-  <p>FM-1 firmwares by other people, ported to the Mod Swapper in one big batch. <b class="warn">Not tried on hardware yet.</b> Some will work, some won't: that's what the reports are for.</p>
-  <p class="note">The menu shows every firmware on the card (up to 160) from release 1.1, so load as many as you like. Tried one? <a href="#report">Tell us</a> if it works or not, and it moves up to the list above.</p>
-  <input id="find" type="search" placeholder="Search 113 ports by name or author..." aria-label="Search ports">
+  <p class="note"><b>porter tested</b> = its porter ran it on a Mod Swapper. <b class="pink">untested</b> = built but not tried on hardware yet: some will work, some won't. Tried one? <a href="#report">Tell us</a>, it helps everyone.</p>
+  <input id="find" type="search" placeholder="Search 117 ports by name or author..." aria-label="Search ports">
   <div class="tbl"><table>
-    <tr><th>Port</th><th>Original by</th><th>Licence</th><th></th></tr>
+    <tr><th>Port</th><th>Original by</th><th>Status</th><th></th></tr>
+    <tr data-n="bbl jam box blairy (blairysbeatlab)"><td>BBL Jam Box <span class="ver">0.9</span></td>
+      <td><a href="https://github.com/UnkleBlairy/BBL-JAM-BOX" target="_blank" rel="noopener">Blairy (blairysbeatlab)</a> <span class="ver">GPL</span></td><td><span class="chip ok">porter tested</span></td>
+      <td><a class="btn sm" href="JAMBOX/JAMBOX.zip" download>DOWNLOAD</a> <a class="src" href="https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/jambox" target="_blank" rel="noopener">source</a></td></tr>
+    <tr data-n="jiant fm juanjiant-bit"><td>JIANT FM <span class="ver">0.9.18</span></td>
+      <td><a href="https://github.com/juanjiant-bit/JIANT" target="_blank" rel="noopener">juanjiant-bit</a> <span class="ver">GPL</span></td><td><span class="chip ok">porter tested</span></td>
+      <td><a class="btn sm" href="JIANT/JIANT.zip" download>DOWNLOAD</a> <a class="src" href="https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/jiant" target="_blank" rel="noopener">source</a></td></tr>
+    <tr data-n="sloop isod89"><td>SLOOP <span class="ver">2.8.5</span></td>
+      <td><a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">isod89</a> <span class="ver">GPL</span></td><td><span class="chip ok">porter tested</span></td>
+      <td><a class="btn sm" href="SLOOP/SLOOP.zip" download>DOWNLOAD</a> <a class="src" href="https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/sloop" target="_blank" rel="noopener">source</a></td></tr>
+    <tr data-n="x0x charles vestal"><td>X0X <span class="ver">1.2.2</span></td>
+      <td><a href="https://github.com/charlesvestal/fm1-x0x" target="_blank" rel="noopener">Charles Vestal</a> <span class="ver">GPL</span></td><td><span class="chip ok">porter tested</span></td>
+      <td><a class="btn sm" href="X0X/X0X.zip" download>DOWNLOAD</a> <a class="src" href="https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/x0x" target="_blank" rel="noopener">source</a></td></tr>
     <tr data-n="aisling stephencummins"><td>Aisling <span class="ver">1.6.1</span></td>
-      <td><a href="https://github.com/stephencummins/fm1-aisling" target="_blank" rel="noopener">stephencummins</a></td><td>GPL</td>
+      <td><a href="https://github.com/stephencummins/fm1-aisling" target="_blank" rel="noopener">stephencummins</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="AISLING/AISLING.zip" download>DOWNLOAD</a> <a class="src" href="AISLING/AISLING-source.zip" download>source</a></td></tr>
     <tr data-n="amb-1 charlesvestal"><td>AMB-1 <span class="ver">1.3.2</span></td>
-      <td><a href="https://github.com/charlesvestal/fm1-amb" target="_blank" rel="noopener">charlesvestal</a></td><td>GPL</td>
+      <td><a href="https://github.com/charlesvestal/fm1-amb" target="_blank" rel="noopener">charlesvestal</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="AMB1/AMB1.zip" download>DOWNLOAD</a> <a class="src" href="AMB1/AMB1-source.zip" download>source</a></td></tr>
     <tr data-n="amb-pond superxor"><td>amb-pond <span class="ver">0.1.2</span></td>
-      <td><a href="https://github.com/superxor/amb-pond" target="_blank" rel="noopener">superxor</a></td><td>GPL</td>
+      <td><a href="https://github.com/superxor/amb-pond" target="_blank" rel="noopener">superxor</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="AMBPOND/AMBPOND.zip" download>DOWNLOAD</a> <a class="src" href="AMBPOND/AMBPOND-source.zip" download>source</a></td></tr>
     <tr data-n="araminta wulgaren"><td>Araminta <span class="ver">4.8</span></td>
-      <td><a href="https://github.com/Wulgaren/Araminta" target="_blank" rel="noopener">Wulgaren</a></td><td>GPL</td>
+      <td><a href="https://github.com/Wulgaren/Araminta" target="_blank" rel="noopener">Wulgaren</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ARAMINTA/ARAMINTA.zip" download>DOWNLOAD</a> <a class="src" href="ARAMINTA/ARAMINTA-source.zip" download>source</a></td></tr>
     <tr data-n="arctic scream polarpatch"><td>Arctic Scream <span class="ver">2.1.6</span></td>
-      <td><a href="https://github.com/PolarPatch/Arctic-scream-FM-1" target="_blank" rel="noopener">PolarPatch</a></td><td>GPL</td>
+      <td><a href="https://github.com/PolarPatch/Arctic-scream-FM-1" target="_blank" rel="noopener">PolarPatch</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ARCTIC/ARCTIC.zip" download>DOWNLOAD</a> <a class="src" href="ARCTIC/ARCTIC-source.zip" download>source</a></td></tr>
     <tr data-n="arcturus s6 zeptosecond-dsp"><td>Arcturus S6 <span class="ver">1.7</span></td>
-      <td><a href="https://github.com/zeptosecond-dsp/Arcturus-S6" target="_blank" rel="noopener">zeptosecond-dsp</a></td><td>GPL</td>
+      <td><a href="https://github.com/zeptosecond-dsp/Arcturus-S6" target="_blank" rel="noopener">zeptosecond-dsp</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ARCTURUS/ARCTURUS.zip" download>DOWNLOAD</a> <a class="src" href="ARCTURUS/ARCTURUS-source.zip" download>source</a></td></tr>
     <tr data-n="arp wav 09 wav0902"><td>ARP WAV 09 <span class="ver">1.0.7</span></td>
-      <td><a href="https://github.com/wav0902/wav-fm1" target="_blank" rel="noopener">wav0902</a></td><td>GPL</td>
+      <td><a href="https://github.com/wav0902/wav-fm1" target="_blank" rel="noopener">wav0902</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ARPWAV09/ARPWAV09.zip" download>DOWNLOAD</a> <a class="src" href="ARPWAV09/ARPWAV09-source.zip" download>source</a></td></tr>
     <tr data-n="artihive khavld"><td>ARTIHIVE <span class="ver">2.0.6</span></td>
-      <td><a href="https://github.com/KHAVld/ARTIHIVE" target="_blank" rel="noopener">KHAVld</a></td><td>GPL</td>
+      <td><a href="https://github.com/KHAVld/ARTIHIVE" target="_blank" rel="noopener">KHAVld</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ARTIHIVE/ARTIHIVE.zip" download>DOWNLOAD</a> <a class="src" href="ARTIHIVE/ARTIHIVE-source.zip" download>source</a></td></tr>
     <tr data-n="b3 organ r-jeb"><td>B3 ORGAN <span class="ver">0.6.1</span></td>
-      <td><a href="https://github.com/R-Jeb/setBfree-fm1" target="_blank" rel="noopener">R-Jeb</a></td><td>GPL</td>
+      <td><a href="https://github.com/R-Jeb/setBfree-fm1" target="_blank" rel="noopener">R-Jeb</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="B3ORGAN/B3ORGAN.zip" download>DOWNLOAD</a> <a class="src" href="B3ORGAN/B3ORGAN-source.zip" download>source</a></td></tr>
     <tr data-n="bit-1 rustypawz"><td>BIT-1 <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="BIT1/BIT1.zip" download>DOWNLOAD</a> <a class="src" href="BIT1/BIT1-source.zip" download>source</a></td></tr>
     <tr data-n="blues box provostprovost"><td>Blues Box <span class="ver">2.2.3</span></td>
-      <td><a href="https://github.com/provostprovost/blues" target="_blank" rel="noopener">provostprovost</a></td><td>GPL</td>
+      <td><a href="https://github.com/provostprovost/blues" target="_blank" rel="noopener">provostprovost</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="BLUESBOX/BLUESBOX.zip" download>DOWNLOAD</a> <a class="src" href="BLUESBOX/BLUESBOX-source.zip" download>source</a></td></tr>
     <tr data-n="bytemania llozd"><td>Bytemania <span class="ver">1.3.3</span></td>
-      <td><a href="https://github.com/llozd/bytemania" target="_blank" rel="noopener">llozd</a></td><td>GPL</td>
+      <td><a href="https://github.com/llozd/bytemania" target="_blank" rel="noopener">llozd</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="BYTEMANI/BYTEMANI.zip" download>DOWNLOAD</a> <a class="src" href="BYTEMANI/BYTEMANI-source.zip" download>source</a></td></tr>
     <tr data-n="caravel bonszaimusic"><td>Caravel <span class="ver">1.2.0</span></td>
-      <td><a href="https://github.com/bonszaimusic/caravel" target="_blank" rel="noopener">bonszaimusic</a></td><td>GPL</td>
+      <td><a href="https://github.com/bonszaimusic/caravel" target="_blank" rel="noopener">bonszaimusic</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CARAVEL/CARAVEL.zip" download>DOWNLOAD</a> <a class="src" href="CARAVEL/CARAVEL-source.zip" download>source</a></td></tr>
     <tr data-n="castletunia provostprovost"><td>Castletunia <span class="ver">1.4.1</span></td>
-      <td><a href="https://github.com/provostprovost/castletunia" target="_blank" rel="noopener">provostprovost</a></td><td>GPL</td>
+      <td><a href="https://github.com/provostprovost/castletunia" target="_blank" rel="noopener">provostprovost</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CASTLETU/CASTLETU.zip" download>DOWNLOAD</a> <a class="src" href="CASTLETU/CASTLETU-source.zip" download>source</a></td></tr>
     <tr data-n="chipbox pbarilla"><td>Chipbox <span class="ver">1.7.0-signatureshowcase</span></td>
-      <td><a href="https://github.com/pbarilla/chipbox" target="_blank" rel="noopener">pbarilla</a></td><td>GPL</td>
+      <td><a href="https://github.com/pbarilla/chipbox" target="_blank" rel="noopener">pbarilla</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CHIPBOX/CHIPBOX.zip" download>DOWNLOAD</a> <a class="src" href="CHIPBOX/CHIPBOX-source.zip" download>source</a></td></tr>
     <tr data-n="choralroot quixotic7"><td>ChoralRoot <span class="ver">0.46</span></td>
-      <td><a href="https://github.com/Quixotic7/ChoralRootFM1" target="_blank" rel="noopener">Quixotic7</a></td><td>GPL</td>
+      <td><a href="https://github.com/Quixotic7/ChoralRootFM1" target="_blank" rel="noopener">Quixotic7</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CHORALRT/CHORALRT.zip" download>DOWNLOAD</a> <a class="src" href="CHORALRT/CHORALRT-source.zip" download>source</a></td></tr>
     <tr data-n="clipper isod89"><td>CLIPPER <span class="ver">1.3.1</span></td>
-      <td><a href="https://github.com/isod89/clipper-fm1" target="_blank" rel="noopener">isod89</a></td><td>GPL</td>
+      <td><a href="https://github.com/isod89/clipper-fm1" target="_blank" rel="noopener">isod89</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CLIPPER/CLIPPER.zip" download>DOWNLOAD</a> <a class="src" href="CLIPPER/CLIPPER-source.zip" download>source</a></td></tr>
     <tr data-n="conductor mammothcheese"><td>CONDUCTOR <span class="ver">1.0</span></td>
-      <td><a href="https://github.com/MammothCheese/conductor" target="_blank" rel="noopener">MammothCheese</a></td><td>GPL</td>
+      <td><a href="https://github.com/MammothCheese/conductor" target="_blank" rel="noopener">MammothCheese</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CONDUCTO/CONDUCTO.zip" download>DOWNLOAD</a> <a class="src" href="CONDUCTO/CONDUCTO-source.zip" download>source</a></td></tr>
     <tr data-n="coralflower ficusficusov"><td>CoralFlower <span class="ver">0.7.1</span></td>
-      <td><a href="https://github.com/FicusFicusov/CoralFlower" target="_blank" rel="noopener">FicusFicusov</a></td><td>GPL</td>
+      <td><a href="https://github.com/FicusFicusov/CoralFlower" target="_blank" rel="noopener">FicusFicusov</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CORALFLW/CORALFLW.zip" download>DOWNLOAD</a> <a class="src" href="CORALFLW/CORALFLW-source.zip" download>source</a></td></tr>
     <tr data-n="cs-1 twochannels"><td>CS-1 <span class="ver">2026.10</span></td>
-      <td><a href="https://github.com/twochannels/CS-1" target="_blank" rel="noopener">twochannels</a></td><td>GPL</td>
+      <td><a href="https://github.com/twochannels/CS-1" target="_blank" rel="noopener">twochannels</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CS1/CS1.zip" download>DOWNLOAD</a> <a class="src" href="CS1/CS1-source.zip" download>source</a></td></tr>
     <tr data-n="cty-1 rustypawz"><td>CTY-1 <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CTY1/CTY1.zip" download>DOWNLOAD</a> <a class="src" href="CTY1/CTY1-source.zip" download>source</a></td></tr>
     <tr data-n="cultbox beatcult"><td>CULTBOX <span class="ver">1.2</span></td>
-      <td><a href="https://github.com/beatcult/CULTBOX" target="_blank" rel="noopener">beatcult</a></td><td>GPL</td>
+      <td><a href="https://github.com/beatcult/CULTBOX" target="_blank" rel="noopener">beatcult</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="CULTBOX/CULTBOX.zip" download>DOWNLOAD</a> <a class="src" href="CULTBOX/CULTBOX-source.zip" download>source</a></td></tr>
     <tr data-n="dark-1 sparky480v"><td>Dark-1 <span class="ver">1.0.7</span></td>
-      <td><a href="https://github.com/sparky480v/Dark-1" target="_blank" rel="noopener">sparky480v</a></td><td>GPL</td>
+      <td><a href="https://github.com/sparky480v/Dark-1" target="_blank" rel="noopener">sparky480v</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DARK1/DARK1.zip" download>DOWNLOAD</a> <a class="src" href="DARK1/DARK1-source.zip" download>source</a></td></tr>
     <tr data-n="del rio jsopdebeeck"><td>Del Rio <span class="ver">1.0.1</span></td>
-      <td><a href="https://github.com/jsopdebeeck/fm1-delrio" target="_blank" rel="noopener">jsopdebeeck</a></td><td>GPL</td>
+      <td><a href="https://github.com/jsopdebeeck/fm1-delrio" target="_blank" rel="noopener">jsopdebeeck</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DELRIO/DELRIO.zip" download>DOWNLOAD</a> <a class="src" href="DELRIO/DELRIO-source.zip" download>source</a></td></tr>
     <tr data-n="demake inigohernandez"><td>Demake <span class="ver">0.4.25</span></td>
-      <td><a href="https://github.com/InigoHernandez/demake-synth" target="_blank" rel="noopener">InigoHernandez</a></td><td>GPL</td>
+      <td><a href="https://github.com/InigoHernandez/demake-synth" target="_blank" rel="noopener">InigoHernandez</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DEMAKE/DEMAKE.zip" download>DOWNLOAD</a> <a class="src" href="DEMAKE/DEMAKE-source.zip" download>source</a></td></tr>
     <tr data-n="drift fbnfrtg"><td>DRIFT <span class="ver">0.9.6</span></td>
-      <td><a href="https://github.com/FBNFRTG/drift-fm1" target="_blank" rel="noopener">FBNFRTG</a></td><td>GPL</td>
+      <td><a href="https://github.com/FBNFRTG/drift-fm1" target="_blank" rel="noopener">FBNFRTG</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DRIFT/DRIFT.zip" download>DOWNLOAD</a> <a class="src" href="DRIFT/DRIFT-source.zip" download>source</a></td></tr>
     <tr data-n="drumlab pbarilla"><td>Drumlab <span class="ver">1.0.0-graduationday</span></td>
-      <td><a href="https://github.com/pbarilla/drumlab" target="_blank" rel="noopener">pbarilla</a></td><td>GPL</td>
+      <td><a href="https://github.com/pbarilla/drumlab" target="_blank" rel="noopener">pbarilla</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DRUMLAB/DRUMLAB.zip" download>DOWNLOAD</a> <a class="src" href="DRUMLAB/DRUMLAB-source.zip" download>source</a></td></tr>
     <tr data-n="dub-1 sbegueria"><td>Dub-1 <span class="ver">1.5.0</span></td>
-      <td><a href="https://github.com/sbegueria/fm1-dub" target="_blank" rel="noopener">sbegueria</a></td><td>GPL</td>
+      <td><a href="https://github.com/sbegueria/fm1-dub" target="_blank" rel="noopener">sbegueria</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DUB1/DUB1.zip" download>DOWNLOAD</a> <a class="src" href="DUB1/DUB1-source.zip" download>source</a></td></tr>
     <tr data-n="duell oscillr"><td>Duell <span class="ver">1.3.7</span></td>
-      <td><a href="https://github.com/oscillr/DUELL" target="_blank" rel="noopener">oscillr</a></td><td>GPL</td>
+      <td><a href="https://github.com/oscillr/DUELL" target="_blank" rel="noopener">oscillr</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="DUELL/DUELL.zip" download>DOWNLOAD</a> <a class="src" href="DUELL/DUELL-source.zip" download>source</a></td></tr>
     <tr data-n="eco-1 rustypawz"><td>ECO-1 <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ECO1/ECO1.zip" download>DOWNLOAD</a> <a class="src" href="ECO1/ECO1-source.zip" download>source</a></td></tr>
     <tr data-n="elixir dmajka"><td>Elixir <span class="ver">1.5.4</span></td>
-      <td><a href="https://github.com/dmajka/elixir" target="_blank" rel="noopener">dmajka</a></td><td>GPL</td>
+      <td><a href="https://github.com/dmajka/elixir" target="_blank" rel="noopener">dmajka</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ELIXIR/ELIXIR.zip" download>DOWNLOAD</a> <a class="src" href="ELIXIR/ELIXIR-source.zip" download>source</a></td></tr>
     <tr data-n="estampie ocean"><td>ESTAMPIE <span class="ver">0.4.0</span></td>
-      <td><a href="https://github.com/ocean/estampie" target="_blank" rel="noopener">ocean</a></td><td>GPL</td>
+      <td><a href="https://github.com/ocean/estampie" target="_blank" rel="noopener">ocean</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ESTAMPIE/ESTAMPIE.zip" download>DOWNLOAD</a> <a class="src" href="ESTAMPIE/ESTAMPIE-source.zip" download>source</a></td></tr>
     <tr data-n="fart machine adamcharleswilsonmusic-code"><td>Fart Machine <span class="ver">1.1.0</span></td>
-      <td><a href="https://github.com/adamcharleswilsonmusic-code/Fart-Machine-One" target="_blank" rel="noopener">adamcharleswilsonmusic-code</a></td><td>GPL</td>
+      <td><a href="https://github.com/adamcharleswilsonmusic-code/Fart-Machine-One" target="_blank" rel="noopener">adamcharleswilsonmusic-code</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FARTM/FARTM.zip" download>DOWNLOAD</a> <a class="src" href="FARTM/FARTM-source.zip" download>source</a></td></tr>
     <tr data-n="felucca rainbow joshbartlettband-web"><td>Felucca Rainbow <span class="ver">1.1.5</span></td>
-      <td><a href="https://github.com/joshbartlettband-web/felucca-rainbow" target="_blank" rel="noopener">joshbartlettband-web</a></td><td>GPL</td>
+      <td><a href="https://github.com/joshbartlettband-web/felucca-rainbow" target="_blank" rel="noopener">joshbartlettband-web</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="RAINBOW/RAINBOW.zip" download>DOWNLOAD</a> <a class="src" href="RAINBOW/RAINBOW-source.zip" download>source</a></td></tr>
     <tr data-n="fimba jadamsowers"><td>Fimba <span class="ver">0.7.0</span></td>
-      <td><a href="https://github.com/jadamsowers/fm1-fimba" target="_blank" rel="noopener">jadamsowers</a></td><td>GPL</td>
+      <td><a href="https://github.com/jadamsowers/fm1-fimba" target="_blank" rel="noopener">jadamsowers</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FIMBA/FIMBA.zip" download>DOWNLOAD</a> <a class="src" href="FIMBA/FIMBA-source.zip" download>source</a></td></tr>
     <tr data-n="flat-20 thenewwazoo"><td>FLAT-20 <span class="ver">0.3.2</span></td>
-      <td><a href="https://github.com/thenewwazoo/FLAT-20" target="_blank" rel="noopener">thenewwazoo</a></td><td>GPL</td>
+      <td><a href="https://github.com/thenewwazoo/FLAT-20" target="_blank" rel="noopener">thenewwazoo</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FLAT20/FLAT20.zip" download>DOWNLOAD</a> <a class="src" href="FLAT20/FLAT20-source.zip" download>source</a></td></tr>
     <tr data-n="floyd renebohne"><td>FLOYD <span class="ver">2.4</span></td>
-      <td><a href="https://github.com/renebohne/sloop-fm1" target="_blank" rel="noopener">renebohne</a></td><td>GPL</td>
+      <td><a href="https://github.com/renebohne/sloop-fm1" target="_blank" rel="noopener">renebohne</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FLOYD/FLOYD.zip" download>DOWNLOAD</a> <a class="src" href="FLOYD/FLOYD-source.zip" download>source</a></td></tr>
     <tr data-n="fm-106 patttf"><td>FM-106 <span class="ver">1.02</span></td>
-      <td><a href="https://github.com/PatttF/fm-106" target="_blank" rel="noopener">PatttF</a></td><td>GPL</td>
+      <td><a href="https://github.com/PatttF/fm-106" target="_blank" rel="noopener">PatttF</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FM106/FM106.zip" download>DOWNLOAD</a> <a class="src" href="FM106/FM106-source.zip" download>source</a></td></tr>
     <tr data-n="fmav-1 wootr0p"><td>FMav-1 <span class="ver">0.6.4</span></td>
-      <td><a href="https://github.com/wootr0p/fmav1" target="_blank" rel="noopener">wootr0p</a></td><td>GPL</td>
+      <td><a href="https://github.com/wootr0p/fmav1" target="_blank" rel="noopener">wootr0p</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FMAV1/FMAV1.zip" download>DOWNLOAD</a> <a class="src" href="FMAV1/FMAV1-source.zip" download>source</a></td></tr>
     <tr data-n="fmel-1 antonioaltea"><td>FMEL-1 <span class="ver">1.3</span></td>
-      <td><a href="https://github.com/AntonioAltea/fmel-1" target="_blank" rel="noopener">AntonioAltea</a></td><td>GPL</td>
+      <td><a href="https://github.com/AntonioAltea/fmel-1" target="_blank" rel="noopener">AntonioAltea</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FMEL1/FMEL1.zip" download>DOWNLOAD</a> <a class="src" href="FMEL1/FMEL1-source.zip" download>source</a></td></tr>
     <tr data-n="fmini-1 ruppert"><td>FMini-1 <span class="ver">2.6.0</span></td>
-      <td><a href="https://github.com/ruppert/fmini-1" target="_blank" rel="noopener">ruppert</a></td><td>GPL</td>
+      <td><a href="https://github.com/ruppert/fmini-1" target="_blank" rel="noopener">ruppert</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FMINI/FMINI.zip" download>DOWNLOAD</a> <a class="src" href="FMINI/FMINI-source.zip" download>source</a></td></tr>
     <tr data-n="fomni charlesvestal"><td>FoMni <span class="ver">0.5</span></td>
-      <td><a href="https://github.com/charlesvestal/fm1-fomni" target="_blank" rel="noopener">charlesvestal</a></td><td>GPL</td>
+      <td><a href="https://github.com/charlesvestal/fm1-fomni" target="_blank" rel="noopener">charlesvestal</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FOMNI/FOMNI.zip" download>DOWNLOAD</a> <a class="src" href="FOMNI/FOMNI-source.zip" download>source</a></td></tr>
     <tr data-n="frasil styvesgoupil"><td>FRASIL <span class="ver">3.4.1</span></td>
-      <td><a href="https://github.com/styvesgoupil/frasil" target="_blank" rel="noopener">styvesgoupil</a></td><td>GPL</td>
+      <td><a href="https://github.com/styvesgoupil/frasil" target="_blank" rel="noopener">styvesgoupil</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FRASIL/FRASIL.zip" download>DOWNLOAD</a> <a class="src" href="FRASIL/FRASIL-source.zip" download>source</a></td></tr>
     <tr data-n="frodhes leonardomirabal"><td>Frodhes <span class="ver">0.9.14</span></td>
-      <td><a href="https://github.com/leonardoMirabal/frodhes" target="_blank" rel="noopener">leonardoMirabal</a></td><td>GPL</td>
+      <td><a href="https://github.com/leonardoMirabal/frodhes" target="_blank" rel="noopener">leonardoMirabal</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FRODHES/FRODHES.zip" download>DOWNLOAD</a> <a class="src" href="FRODHES/FRODHES-source.zip" download>source</a></td></tr>
     <tr data-n="fumi-1 cartesive"><td>FuMi-1 <span class="ver">1.1.1</span></td>
-      <td><a href="https://github.com/cartesive/fumi-1" target="_blank" rel="noopener">cartesive</a></td><td>GPL</td>
+      <td><a href="https://github.com/cartesive/fumi-1" target="_blank" rel="noopener">cartesive</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="FUMI/FUMI.zip" download>DOWNLOAD</a> <a class="src" href="FUMI/FUMI-source.zip" download>source</a></td></tr>
     <tr data-n="gammawave fvalente"><td>GammaWave <span class="ver">1.2.1</span></td>
-      <td><a href="https://github.com/fvalente/GammaWave-FM1" target="_blank" rel="noopener">fvalente</a></td><td>GPL</td>
+      <td><a href="https://github.com/fvalente/GammaWave-FM1" target="_blank" rel="noopener">fvalente</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GAMMAWAV/GAMMAWAV.zip" download>DOWNLOAD</a> <a class="src" href="GAMMAWAV/GAMMAWAV-source.zip" download>source</a></td></tr>
     <tr data-n="ghoulbox jasonpersinger"><td>Ghoulbox <span class="ver">2.4</span></td>
-      <td><a href="https://github.com/jasonpersinger/ghoulbox-fm1-dungeon-synth" target="_blank" rel="noopener">jasonpersinger</a></td><td>GPL</td>
+      <td><a href="https://github.com/jasonpersinger/ghoulbox-fm1-dungeon-synth" target="_blank" rel="noopener">jasonpersinger</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GHOUL/GHOUL.zip" download>DOWNLOAD</a> <a class="src" href="GHOUL/GHOUL-source.zip" download>source</a></td></tr>
     <tr data-n="golana gadlele"><td>Golana <span class="ver">1.3</span></td>
-      <td><a href="https://github.com/Gadlele/Golana" target="_blank" rel="noopener">Gadlele</a></td><td>GPL</td>
+      <td><a href="https://github.com/Gadlele/Golana" target="_blank" rel="noopener">Gadlele</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GOLANA/GOLANA.zip" download>DOWNLOAD</a> <a class="src" href="GOLANA/GOLANA-source.zip" download>source</a></td></tr>
     <tr data-n="golana dz edition dzwerg"><td>Golana DZ Edition <span class="ver">0.1.0-beta</span></td>
-      <td><a href="https://github.com/dzwerg/Golana-DZ" target="_blank" rel="noopener">dzwerg</a></td><td>GPL</td>
+      <td><a href="https://github.com/dzwerg/Golana-DZ" target="_blank" rel="noopener">dzwerg</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GOLANADZ/GOLANADZ.zip" download>DOWNLOAD</a> <a class="src" href="GOLANADZ/GOLANADZ-source.zip" download>source</a></td></tr>
     <tr data-n="gr!mm grimmbient"><td>GR!MM <span class="ver">2.0</span></td>
-      <td><a href="https://github.com/GRiMMBIENT/grimm" target="_blank" rel="noopener">GRiMMBIENT</a></td><td>GPL</td>
+      <td><a href="https://github.com/GRiMMBIENT/grimm" target="_blank" rel="noopener">GRiMMBIENT</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GRIMM/GRIMM.zip" download>DOWNLOAD</a> <a class="src" href="GRIMM/GRIMM-source.zip" download>source</a></td></tr>
     <tr data-n="grav-1 rustypawz"><td>GRAV-1 <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GRAV1/GRAV1.zip" download>DOWNLOAD</a> <a class="src" href="GRAV1/GRAV1-source.zip" download>source</a></td></tr>
     <tr data-n="guru-600 marcgoudy"><td>Guru-600 <span class="ver">1.4.0</span></td>
-      <td><a href="https://github.com/MarcGoudy/guru-600" target="_blank" rel="noopener">MarcGoudy</a></td><td>GPL</td>
+      <td><a href="https://github.com/MarcGoudy/guru-600" target="_blank" rel="noopener">MarcGoudy</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="GURU600/GURU600.zip" download>DOWNLOAD</a> <a class="src" href="GURU600/GURU600-source.zip" download>source</a></td></tr>
     <tr data-n="hadal-1 sparky480v"><td>HADAL-1 <span class="ver">1.0.1</span></td>
-      <td><a href="https://github.com/sparky480v/hadal-1" target="_blank" rel="noopener">sparky480v</a></td><td>GPL</td>
+      <td><a href="https://github.com/sparky480v/hadal-1" target="_blank" rel="noopener">sparky480v</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="HADAL1/HADAL1.zip" download>DOWNLOAD</a> <a class="src" href="HADAL1/HADAL1-source.zip" download>source</a></td></tr>
     <tr data-n="hera benbadio"><td>HERA <span class="ver">1.1</span></td>
-      <td><a href="https://github.com/benbadio/hera-fm1" target="_blank" rel="noopener">benbadio</a></td><td>GPL</td>
+      <td><a href="https://github.com/benbadio/hera-fm1" target="_blank" rel="noopener">benbadio</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="HERA/HERA.zip" download>DOWNLOAD</a> <a class="src" href="HERA/HERA-source.zip" download>source</a></td></tr>
     <tr data-n="hortator deadactive"><td>Hortator <span class="ver">1.0.1</span></td>
-      <td><a href="https://github.com/deadactive/hortator" target="_blank" rel="noopener">deadactive</a></td><td>GPL</td>
+      <td><a href="https://github.com/deadactive/hortator" target="_blank" rel="noopener">deadactive</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="HORTATOR/HORTATOR.zip" download>DOWNLOAD</a> <a class="src" href="HORTATOR/HORTATOR-source.zip" download>source</a></td></tr>
     <tr data-n="hyp-1 rustypawz"><td>HYP-1 <span class="ver">1.5.70</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="HYP1/HYP1.zip" download>DOWNLOAD</a> <a class="src" href="HYP1/HYP1-source.zip" download>source</a></td></tr>
     <tr data-n="jamtrack philip-bos"><td>JAMTRACK <span class="ver">0.2.3</span></td>
-      <td><a href="https://github.com/Philip-Bos/jamtrack-fm1" target="_blank" rel="noopener">Philip-Bos</a></td><td>MIT</td>
+      <td><a href="https://github.com/Philip-Bos/jamtrack-fm1" target="_blank" rel="noopener">Philip-Bos</a> <span class="ver">MIT</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="JAMTRACK/JAMTRACK.zip" download>DOWNLOAD</a> <a class="src" href="JAMTRACK/JAMTRACK-source.zip" download>source</a></td></tr>
     <tr data-n="jiant fm 10 juanjiant-bit"><td>JIANT FM 10 <span class="ver">10.8.42</span></td>
-      <td><a href="https://github.com/juanjiant-bit/JIANT" target="_blank" rel="noopener">juanjiant-bit</a></td><td>GPL</td>
+      <td><a href="https://github.com/juanjiant-bit/JIANT" target="_blank" rel="noopener">juanjiant-bit</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="JIANT10/JIANT10.zip" download>DOWNLOAD</a> <a class="src" href="JIANT10/JIANT10-source.zip" download>source</a></td></tr>
     <tr data-n="juicy danielgilbert"><td>Juicy <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/DanielGilbert/Juicy" target="_blank" rel="noopener">DanielGilbert</a></td><td>GPL</td>
+      <td><a href="https://github.com/DanielGilbert/Juicy" target="_blank" rel="noopener">DanielGilbert</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="JUICY/JUICY.zip" download>DOWNLOAD</a> <a class="src" href="JUICY/JUICY-source.zip" download>source</a></td></tr>
     <tr data-n="k-wasub guizmoh"><td>K-WASUB <span class="ver">1.2.7b</span></td>
-      <td><a href="https://github.com/Guizmoh/K-WASUB_Firmware_for_FM1" target="_blank" rel="noopener">Guizmoh</a></td><td>GPL</td>
+      <td><a href="https://github.com/Guizmoh/K-WASUB_Firmware_for_FM1" target="_blank" rel="noopener">Guizmoh</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="KWASUB/KWASUB.zip" download>DOWNLOAD</a> <a class="src" href="KWASUB/KWASUB-source.zip" download>source</a></td></tr>
     <tr data-n="karma eatyourgreensstudio-dotcom"><td>KARMA <span class="ver">3.1.6</span></td>
-      <td><a href="https://github.com/eatyourgreensstudio-dotcom/karma-fm1" target="_blank" rel="noopener">eatyourgreensstudio-dotcom</a></td><td>GPL</td>
+      <td><a href="https://github.com/eatyourgreensstudio-dotcom/karma-fm1" target="_blank" rel="noopener">eatyourgreensstudio-dotcom</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="KARMA/KARMA.zip" download>DOWNLOAD</a> <a class="src" href="KARMA/KARMA-source.zip" download>source</a></td></tr>
     <tr data-n="kawa guizmoh"><td>KAWA <span class="ver">0.9</span></td>
-      <td><a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1" target="_blank" rel="noopener">Guizmoh</a></td><td>GPL</td>
+      <td><a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1" target="_blank" rel="noopener">Guizmoh</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="KAWA/KAWA.zip" download>DOWNLOAD</a> <a class="src" href="KAWA/KAWA-source.zip" download>source</a></td></tr>
     <tr data-n="kurzhaar, der basshund kurzhaar168"><td>Kurzhaar, der Basshund <span class="ver">1.1</span></td>
-      <td><a href="https://github.com/kurzhaar168/kurzhaar" target="_blank" rel="noopener">kurzhaar168</a></td><td>GPL</td>
+      <td><a href="https://github.com/kurzhaar168/kurzhaar" target="_blank" rel="noopener">kurzhaar168</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="KURZHAAR/KURZHAAR.zip" download>DOWNLOAD</a> <a class="src" href="KURZHAAR/KURZHAAR-source.zip" download>source</a></td></tr>
     <tr data-n="lof-1 rustypawz"><td>LOF-1 <span class="ver">0.1</span></td>
-      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a></td><td>GPL</td>
+      <td><a href="https://github.com/RustyPawz/fm1-HYP1" target="_blank" rel="noopener">RustyPawz</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="LOF1/LOF1.zip" download>DOWNLOAD</a> <a class="src" href="LOF1/LOF1-source.zip" download>source</a></td></tr>
     <tr data-n="makohai delirioux"><td>Makohai <span class="ver">1.4</span></td>
-      <td><a href="https://github.com/delirioux/makohai" target="_blank" rel="noopener">delirioux</a></td><td>GPL</td>
+      <td><a href="https://github.com/delirioux/makohai" target="_blank" rel="noopener">delirioux</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MAKOHAI/MAKOHAI.zip" download>DOWNLOAD</a> <a class="src" href="MAKOHAI/MAKOHAI-source.zip" download>source</a></td></tr>
     <tr data-n="maku okumurari2"><td>MAKU <span class="ver">1.0</span></td>
-      <td><a href="https://github.com/okumurari2/maku" target="_blank" rel="noopener">okumurari2</a></td><td>GPL</td>
+      <td><a href="https://github.com/okumurari2/maku" target="_blank" rel="noopener">okumurari2</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MAKU/MAKU.zip" download>DOWNLOAD</a> <a class="src" href="MAKU/MAKU-source.zip" download>source</a></td></tr>
     <tr data-n="manta delirioux"><td>Manta <span class="ver">1.1</span></td>
-      <td><a href="https://github.com/delirioux/manta" target="_blank" rel="noopener">delirioux</a></td><td>GPL</td>
+      <td><a href="https://github.com/delirioux/manta" target="_blank" rel="noopener">delirioux</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MANTA/MANTA.zip" download>DOWNLOAD</a> <a class="src" href="MANTA/MANTA-source.zip" download>source</a></td></tr>
     <tr data-n="melodee keremimo"><td>Melodee <span class="ver">1.6.1</span></td>
-      <td><a href="https://github.com/keremimo/melodee" target="_blank" rel="noopener">keremimo</a></td><td>GPL</td>
+      <td><a href="https://github.com/keremimo/melodee" target="_blank" rel="noopener">keremimo</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MELODEE/MELODEE.zip" download>DOWNLOAD</a> <a class="src" href="MELODEE/MELODEE-source.zip" download>source</a></td></tr>
     <tr data-n="min-1 reytian"><td>Min-1 <span class="ver">0.2.1</span></td>
-      <td><a href="https://github.com/Reytian/fm1-min1" target="_blank" rel="noopener">Reytian</a></td><td>GPL</td>
+      <td><a href="https://github.com/Reytian/fm1-min1" target="_blank" rel="noopener">Reytian</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MIN1/MIN1.zip" download>DOWNLOAD</a> <a class="src" href="MIN1/MIN1-source.zip" download>source</a></td></tr>
     <tr data-n="mini-ju08 eldontyrellcorp"><td>Mini-Ju08 <span class="ver">08-1.00</span></td>
-      <td><a href="https://github.com/eldontyrellcorp/Mini-Ju08" target="_blank" rel="noopener">eldontyrellcorp</a></td><td>GPL</td>
+      <td><a href="https://github.com/eldontyrellcorp/Mini-Ju08" target="_blank" rel="noopener">eldontyrellcorp</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MINIJU08/MINIJU08.zip" download>DOWNLOAD</a> <a class="src" href="MINIJU08/MINIJU08-source.zip" download>source</a></td></tr>
     <tr data-n="mini-tone eldontyrellcorp"><td>Mini-Tone <span class="ver">1.0.5</span></td>
-      <td><a href="https://github.com/eldontyrellcorp/Mini-Tone" target="_blank" rel="noopener">eldontyrellcorp</a></td><td>GPL</td>
+      <td><a href="https://github.com/eldontyrellcorp/Mini-Tone" target="_blank" rel="noopener">eldontyrellcorp</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MINITONE/MINITONE.zip" download>DOWNLOAD</a> <a class="src" href="MINITONE/MINITONE-source.zip" download>source</a></td></tr>
     <tr data-n="monk-1 charlesvestal"><td>MONK-1 <span class="ver">0.10</span></td>
-      <td><a href="https://github.com/charlesvestal/fm1-monk" target="_blank" rel="noopener">charlesvestal</a></td><td>GPL</td>
+      <td><a href="https://github.com/charlesvestal/fm1-monk" target="_blank" rel="noopener">charlesvestal</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MONK1/MONK1.zip" download>DOWNLOAD</a> <a class="src" href="MONK1/MONK1-source.zip" download>source</a></td></tr>
     <tr data-n="mono2k inigohernandez"><td>MONO2K <span class="ver">1.13</span></td>
-      <td><a href="https://github.com/InigoHernandez/mono2k" target="_blank" rel="noopener">InigoHernandez</a></td><td>GPL</td>
+      <td><a href="https://github.com/InigoHernandez/mono2k" target="_blank" rel="noopener">InigoHernandez</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MONO2K/MONO2K.zip" download>DOWNLOAD</a> <a class="src" href="MONO2K/MONO2K-source.zip" download>source</a></td></tr>
     <tr data-n="morpheus benbadio"><td>Morpheus <span class="ver">1.0.0</span></td>
-      <td><a href="https://github.com/benbadio/morpheus-fm1" target="_blank" rel="noopener">benbadio</a></td><td>GPL</td>
+      <td><a href="https://github.com/benbadio/morpheus-fm1" target="_blank" rel="noopener">benbadio</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MORPHEUS/MORPHEUS.zip" download>DOWNLOAD</a> <a class="src" href="MORPHEUS/MORPHEUS-source.zip" download>source</a></td></tr>
     <tr data-n="mutable dreams kidbee85-beep"><td>Mutable Dreams <span class="ver">1.0</span></td>
-      <td><a href="https://github.com/kidbee85-beep/mutable-dreams" target="_blank" rel="noopener">kidbee85-beep</a></td><td>MIT</td>
+      <td><a href="https://github.com/kidbee85-beep/mutable-dreams" target="_blank" rel="noopener">kidbee85-beep</a> <span class="ver">MIT</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="MUTABLE/MUTABLE.zip" download>DOWNLOAD</a> <a class="src" href="MUTABLE/MUTABLE-source.zip" download>source</a></td></tr>
     <tr data-n="nachtfahrt fartypants"><td>Nachtfahrt <span class="ver">1.0.2</span></td>
-      <td><a href="https://github.com/FartyPants/fm1-nachtfahrt" target="_blank" rel="noopener">FartyPants</a></td><td>GPL</td>
+      <td><a href="https://github.com/FartyPants/fm1-nachtfahrt" target="_blank" rel="noopener">FartyPants</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="NACHT/NACHT.zip" download>DOWNLOAD</a> <a class="src" href="NACHT/NACHT-source.zip" download>source</a></td></tr>
     <tr data-n="nano freak virusiinstaller"><td>Nano Freak <span class="ver">3.0.1</span></td>
-      <td><a href="https://github.com/Virusiinstaller/nano-freak-fm1" target="_blank" rel="noopener">Virusiinstaller</a></td><td>GPL</td>
+      <td><a href="https://github.com/Virusiinstaller/nano-freak-fm1" target="_blank" rel="noopener">Virusiinstaller</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="NANOFREA/NANOFREA.zip" download>DOWNLOAD</a> <a class="src" href="NANOFREA/NANOFREA-source.zip" download>source</a></td></tr>
     <tr data-n="niagara evanyerburgh"><td>Niagara <span class="ver">0.3.1</span></td>
-      <td><a href="https://github.com/evanyerburgh/niagara-drift" target="_blank" rel="noopener">evanyerburgh</a></td><td>GPL</td>
+      <td><a href="https://github.com/evanyerburgh/niagara-drift" target="_blank" rel="noopener">evanyerburgh</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="NIAGARA/NIAGARA.zip" download>DOWNLOAD</a> <a class="src" href="NIAGARA/NIAGARA-source.zip" download>source</a></td></tr>
     <tr data-n="noiz demons spike-the-percussionist"><td>NOIZ DEMONS <span class="ver">666</span></td>
-      <td><a href="https://github.com/SPIKE-the-Percussionist/noiz_demons" target="_blank" rel="noopener">SPIKE-the-Percussionist</a></td><td>GPL</td>
+      <td><a href="https://github.com/SPIKE-the-Percussionist/noiz_demons" target="_blank" rel="noopener">SPIKE-the-Percussionist</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="NOIZDEMN/NOIZDEMN.zip" download>DOWNLOAD</a> <a class="src" href="NOIZDEMN/NOIZDEMN-source.zip" download>source</a></td></tr>
     <tr data-n="obervave zvenson"><td>OberVave <span class="ver">3.5.4</span></td>
-      <td><a href="https://github.com/zvenson/obervave" target="_blank" rel="noopener">zvenson</a></td><td>GPL</td>
+      <td><a href="https://github.com/zvenson/obervave" target="_blank" rel="noopener">zvenson</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="OBERVAVE/OBERVAVE.zip" download>DOWNLOAD</a> <a class="src" href="OBERVAVE/OBERVAVE-source.zip" download>source</a></td></tr>
     <tr data-n="orbit dspaudio"><td>ORBIT <span class="ver">1.0.1B</span></td>
-      <td><a href="https://github.com/dspaudio/orbit" target="_blank" rel="noopener">dspaudio</a></td><td>GPL</td>
+      <td><a href="https://github.com/dspaudio/orbit" target="_blank" rel="noopener">dspaudio</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ORBIT/ORBIT.zip" download>DOWNLOAD</a> <a class="src" href="ORBIT/ORBIT-source.zip" download>source</a></td></tr>
     <tr data-n="p-vox hanzvolt"><td>P-Vox <span class="ver">1.0-7869</span></td>
-      <td><a href="https://github.com/HanzVolt/P-Vox" target="_blank" rel="noopener">HanzVolt</a></td><td>GPL</td>
+      <td><a href="https://github.com/HanzVolt/P-Vox" target="_blank" rel="noopener">HanzVolt</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="PVOX/PVOX.zip" download>DOWNLOAD</a> <a class="src" href="PVOX/PVOX-source.zip" download>source</a></td></tr>
     <tr data-n="penumbra madmooneyham"><td>Penumbra <span class="ver">1.12</span></td>
-      <td><a href="https://github.com/MadMooneyham/Penumbra" target="_blank" rel="noopener">MadMooneyham</a></td><td>GPL</td>
+      <td><a href="https://github.com/MadMooneyham/Penumbra" target="_blank" rel="noopener">MadMooneyham</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="PENUMBRA/PENUMBRA.zip" download>DOWNLOAD</a> <a class="src" href="PENUMBRA/PENUMBRA-source.zip" download>source</a></td></tr>
     <tr data-n="perf-1 deamonslinky"><td>PERF-1 <span class="ver">0.17.0</span></td>
-      <td><a href="https://github.com/deamonSLINKY/PERF-1" target="_blank" rel="noopener">deamonSLINKY</a></td><td>GPL</td>
+      <td><a href="https://github.com/deamonSLINKY/PERF-1" target="_blank" rel="noopener">deamonSLINKY</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="PERF1/PERF1.zip" download>DOWNLOAD</a> <a class="src" href="PERF1/PERF1-source.zip" download>source</a></td></tr>
     <tr data-n="purplemonkey quixotic7"><td>PurpleMonkey <span class="ver">0.12</span></td>
-      <td><a href="https://github.com/Quixotic7/PurpleMonkeyFM1" target="_blank" rel="noopener">Quixotic7</a></td><td>GPL</td>
+      <td><a href="https://github.com/Quixotic7/PurpleMonkeyFM1" target="_blank" rel="noopener">Quixotic7</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="PURPLEMK/PURPLEMK.zip" download>DOWNLOAD</a> <a class="src" href="PURPLEMK/PURPLEMK-source.zip" download>source</a></td></tr>
     <tr data-n="quantum gammawave guillel51"><td>Quantum GammaWave <span class="ver">2.3.16</span></td>
-      <td><a href="https://github.com/Guillel51/Quantum-GammaWave" target="_blank" rel="noopener">Guillel51</a></td><td>GPL</td>
+      <td><a href="https://github.com/Guillel51/Quantum-GammaWave" target="_blank" rel="noopener">Guillel51</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="QUANTUMG/QUANTUMG.zip" download>DOWNLOAD</a> <a class="src" href="QUANTUMG/QUANTUMG-source.zip" download>source</a></td></tr>
     <tr data-n="ravel de-pattern"><td>Ravel <span class="ver">1.46.0</span></td>
-      <td><a href="https://github.com/De-Pattern/Ravel_FM1" target="_blank" rel="noopener">De-Pattern</a></td><td>GPL</td>
+      <td><a href="https://github.com/De-Pattern/Ravel_FM1" target="_blank" rel="noopener">De-Pattern</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="RAVEL/RAVEL.zip" download>DOWNLOAD</a> <a class="src" href="RAVEL/RAVEL-source.zip" download>source</a></td></tr>
     <tr data-n="s1vave andrewgg88"><td>S1Vave <span class="ver">2.0.1</span></td>
-      <td><a href="https://github.com/AndrewGG88/S1Vave" target="_blank" rel="noopener">AndrewGG88</a></td><td>GPL</td>
+      <td><a href="https://github.com/AndrewGG88/S1Vave" target="_blank" rel="noopener">AndrewGG88</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="S1VAVE/S1VAVE.zip" download>DOWNLOAD</a> <a class="src" href="S1VAVE/S1VAVE-source.zip" download>source</a></td></tr>
     <tr data-n="samsara tomorrowsman"><td>SAMSARA <span class="ver">1.0.0</span></td>
-      <td><a href="https://github.com/tomorrowsman/fm1-samsara" target="_blank" rel="noopener">tomorrowsman</a></td><td>GPL</td>
+      <td><a href="https://github.com/tomorrowsman/fm1-samsara" target="_blank" rel="noopener">tomorrowsman</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SAMSARA/SAMSARA.zip" download>DOWNLOAD</a> <a class="src" href="SAMSARA/SAMSARA-source.zip" download>source</a></td></tr>
     <tr data-n="satie-1 ockm-studio"><td>Satie-1 <span class="ver">0.1.3</span></td>
-      <td><a href="https://github.com/OCKM-STUDIO/SATIE-1" target="_blank" rel="noopener">OCKM-STUDIO</a></td><td>GPL</td>
+      <td><a href="https://github.com/OCKM-STUDIO/SATIE-1" target="_blank" rel="noopener">OCKM-STUDIO</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SATIE/SATIE.zip" download>DOWNLOAD</a> <a class="src" href="SATIE/SATIE-source.zip" download>source</a></td></tr>
     <tr data-n="scintilla joakimeriksson"><td>Scintilla <span class="ver">0.3.2</span></td>
-      <td><a href="https://github.com/joakimeriksson/scintilla-fm1" target="_blank" rel="noopener">joakimeriksson</a></td><td>GPL</td>
+      <td><a href="https://github.com/joakimeriksson/scintilla-fm1" target="_blank" rel="noopener">joakimeriksson</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SCINTILL/SCINTILL.zip" download>DOWNLOAD</a> <a class="src" href="SCINTILL/SCINTILL-source.zip" download>source</a></td></tr>
     <tr data-n="shine on zvenson"><td>Shine On <span class="ver">3.5</span></td>
-      <td><a href="https://github.com/zvenson/shineon" target="_blank" rel="noopener">zvenson</a></td><td>GPL</td>
+      <td><a href="https://github.com/zvenson/shineon" target="_blank" rel="noopener">zvenson</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SHINEON/SHINEON.zip" download>DOWNLOAD</a> <a class="src" href="SHINEON/SHINEON-source.zip" download>source</a></td></tr>
     <tr data-n="sid-1 putchdev"><td>SID-1 <span class="ver">1.0.1</span></td>
-      <td><a href="https://github.com/putchdev/sid-1" target="_blank" rel="noopener">putchdev</a></td><td>GPL</td>
+      <td><a href="https://github.com/putchdev/sid-1" target="_blank" rel="noopener">putchdev</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SID1/SID1.zip" download>DOWNLOAD</a> <a class="src" href="SID1/SID1-source.zip" download>source</a></td></tr>
     <tr data-n="sillage lelacnoir-lab"><td>Sillage <span class="ver">2.2.2</span></td>
-      <td><a href="https://github.com/lelacnoir-lab/Sillage" target="_blank" rel="noopener">lelacnoir-lab</a></td><td>GPL</td>
+      <td><a href="https://github.com/lelacnoir-lab/Sillage" target="_blank" rel="noopener">lelacnoir-lab</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SILLAGE/SILLAGE.zip" download>DOWNLOAD</a> <a class="src" href="SILLAGE/SILLAGE-source.zip" download>source</a></td></tr>
     <tr data-n="skiff illuminus5"><td>Skiff <span class="ver">2.7.1</span></td>
-      <td><a href="https://github.com/illuminus5/skiff" target="_blank" rel="noopener">illuminus5</a></td><td>GPL</td>
+      <td><a href="https://github.com/illuminus5/skiff" target="_blank" rel="noopener">illuminus5</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SKIFF/SKIFF.zip" download>DOWNLOAD</a> <a class="src" href="SKIFF/SKIFF-source.zip" download>source</a></td></tr>
     <tr data-n="skiff atlatl likst4"><td>Skiff Atlatl <span class="ver">1.2.5</span></td>
-      <td><a href="https://github.com/LIkst4/skiff-atlatl" target="_blank" rel="noopener">LIkst4</a></td><td>GPL</td>
+      <td><a href="https://github.com/LIkst4/skiff-atlatl" target="_blank" rel="noopener">LIkst4</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ATLATL/ATLATL.zip" download>DOWNLOAD</a> <a class="src" href="ATLATL/ATLATL-source.zip" download>source</a></td></tr>
     <tr data-n="sloop banks majnikool"><td>SLOOP BANKS <span class="ver">2.5-b28-test</span></td>
-      <td><a href="https://github.com/majnikool/sloop-fm1" target="_blank" rel="noopener">majnikool</a></td><td>GPL</td>
+      <td><a href="https://github.com/majnikool/sloop-fm1" target="_blank" rel="noopener">majnikool</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SLOOPBNK/SLOOPBNK.zip" download>DOWNLOAD</a> <a class="src" href="SLOOPBNK/SLOOPBNK-source.zip" download>source</a></td></tr>
     <tr data-n="sloop dub altessproduction"><td>SLOOP DUB <span class="ver">1.8</span></td>
-      <td><a href="https://github.com/altessproduction/sloop-dub-fm1" target="_blank" rel="noopener">altessproduction</a></td><td>GPL</td>
+      <td><a href="https://github.com/altessproduction/sloop-dub-fm1" target="_blank" rel="noopener">altessproduction</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SLOOPDUB/SLOOPDUB.zip" download>DOWNLOAD</a> <a class="src" href="SLOOPDUB/SLOOPDUB-source.zip" download>source</a></td></tr>
     <tr data-n="sloop dx zvenson"><td>SLOOP DX <span class="ver">4.0.1</span></td>
-      <td><a href="https://github.com/zvenson/dxsloop" target="_blank" rel="noopener">zvenson</a></td><td>GPL</td>
+      <td><a href="https://github.com/zvenson/dxsloop" target="_blank" rel="noopener">zvenson</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SLOOPDX/SLOOPDX.zip" download>DOWNLOAD</a> <a class="src" href="SLOOPDX/SLOOPDX-source.zip" download>source</a></td></tr>
     <tr data-n="smileyface pbarilla"><td>Smileyface <span class="ver">1.3.0-tutorialtime</span></td>
-      <td><a href="https://github.com/pbarilla/smileyface" target="_blank" rel="noopener">pbarilla</a></td><td>GPL</td>
+      <td><a href="https://github.com/pbarilla/smileyface" target="_blank" rel="noopener">pbarilla</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SMILEY/SMILEY.zip" download>DOWNLOAD</a> <a class="src" href="SMILEY/SMILEY-source.zip" download>source</a></td></tr>
     <tr data-n="spampy spampy-droid"><td>SPAMPY <span class="ver">1.2-r080</span></td>
-      <td><a href="https://github.com/Spampy-Droid/SPAMPY-0.0-r949" target="_blank" rel="noopener">Spampy-Droid</a></td><td>GPL</td>
+      <td><a href="https://github.com/Spampy-Droid/SPAMPY-0.0-r949" target="_blank" rel="noopener">Spampy-Droid</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SPAMPY/SPAMPY.zip" download>DOWNLOAD</a> <a class="src" href="SPAMPY/SPAMPY-source.zip" download>source</a></td></tr>
     <tr data-n="splitmilk mammothcheese"><td>SPLITMILK <span class="ver">1.0</span></td>
-      <td><a href="https://github.com/MammothCheese/SPLITMILK" target="_blank" rel="noopener">MammothCheese</a></td><td>GPL</td>
+      <td><a href="https://github.com/MammothCheese/SPLITMILK" target="_blank" rel="noopener">MammothCheese</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="SPLITMIL/SPLITMIL.zip" download>DOWNLOAD</a> <a class="src" href="SPLITMIL/SPLITMIL-source.zip" download>source</a></td></tr>
     <tr data-n="tonitor nzimas"><td>TONITOR <span class="ver">2026.11.10</span></td>
-      <td><a href="https://github.com/nzimas/tonitor" target="_blank" rel="noopener">nzimas</a></td><td>GPL</td>
+      <td><a href="https://github.com/nzimas/tonitor" target="_blank" rel="noopener">nzimas</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="TONITOR/TONITOR.zip" download>DOWNLOAD</a> <a class="src" href="TONITOR/TONITOR-source.zip" download>source</a></td></tr>
     <tr data-n="trapstation os sog-maker"><td>TRAPSTATION OS <span class="ver">1.1.0.2</span></td>
-      <td><a href="https://github.com/sog-maker/trapstation-os" target="_blank" rel="noopener">sog-maker</a></td><td>GPL</td>
+      <td><a href="https://github.com/sog-maker/trapstation-os" target="_blank" rel="noopener">sog-maker</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="TRAPSTAT/TRAPSTAT.zip" download>DOWNLOAD</a> <a class="src" href="TRAPSTAT/TRAPSTAT-source.zip" download>source</a></td></tr>
     <tr data-n="tribe apiel"><td>TRIBE <span class="ver">0.3</span></td>
-      <td><a href="https://github.com/apiel/fm1-tribe" target="_blank" rel="noopener">apiel</a></td><td>GPL</td>
+      <td><a href="https://github.com/apiel/fm1-tribe" target="_blank" rel="noopener">apiel</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="TRIBE/TRIBE.zip" download>DOWNLOAD</a> <a class="src" href="TRIBE/TRIBE-source.zip" download>source</a></td></tr>
     <tr data-n="unholy union actuallysparky"><td>Unholy Union <span class="ver">0.2.3</span></td>
-      <td><a href="https://github.com/actuallysparky/FM-1-Unholy-Union-generative-drone-firmware" target="_blank" rel="noopener">actuallysparky</a></td><td>GPL</td>
+      <td><a href="https://github.com/actuallysparky/FM-1-Unholy-Union-generative-drone-firmware" target="_blank" rel="noopener">actuallysparky</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="UNHOLY/UNHOLY.zip" download>DOWNLOAD</a> <a class="src" href="UNHOLY/UNHOLY-source.zip" download>source</a></td></tr>
     <tr data-n="vallée tammygucci"><td>Vallée <span class="ver">0.9.1-alpha</span></td>
-      <td><a href="https://github.com/tammygucci/valee" target="_blank" rel="noopener">tammygucci</a></td><td>GPL</td>
+      <td><a href="https://github.com/tammygucci/valee" target="_blank" rel="noopener">tammygucci</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="VALLE/VALLE.zip" download>DOWNLOAD</a> <a class="src" href="VALLE/VALLE-source.zip" download>source</a></td></tr>
     <tr data-n="viber ant25fr"><td>Viber <span class="ver">1.2</span></td>
-      <td><a href="https://github.com/ant25fr/viber" target="_blank" rel="noopener">ant25fr</a></td><td>GPL</td>
+      <td><a href="https://github.com/ant25fr/viber" target="_blank" rel="noopener">ant25fr</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="VIBER/VIBER.zip" download>DOWNLOAD</a> <a class="src" href="VIBER/VIBER-source.zip" download>source</a></td></tr>
     <tr data-n="waveloop eli7vh"><td>WaveLoop <span class="ver">1.0.5</span></td>
-      <td><a href="https://github.com/ELI7VH/Felucca" target="_blank" rel="noopener">ELI7VH</a></td><td>GPL</td>
+      <td><a href="https://github.com/ELI7VH/Felucca" target="_blank" rel="noopener">ELI7VH</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="WAVELOOP/WAVELOOP.zip" download>DOWNLOAD</a> <a class="src" href="WAVELOOP/WAVELOOP-source.zip" download>source</a></td></tr>
     <tr data-n="x0x charlesvestal"><td>X0X <span class="ver">1.3</span></td>
-      <td><a href="https://github.com/charlesvestal/fm1-x0x" target="_blank" rel="noopener">charlesvestal</a></td><td>GPL</td>
+      <td><a href="https://github.com/charlesvestal/fm1-x0x" target="_blank" rel="noopener">charlesvestal</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="X0X13/X0X13.zip" download>DOWNLOAD</a> <a class="src" href="X0X13/X0X13-source.zip" download>source</a></td></tr>
     <tr data-n="x0x rmx mr-roboto"><td>X0X RMX <span class="ver">1.1.0</span></td>
-      <td><a href="https://github.com/Mr-Roboto/fm1-x0x-rmx" target="_blank" rel="noopener">Mr-Roboto</a></td><td>GPL</td>
+      <td><a href="https://github.com/Mr-Roboto/fm1-x0x-rmx" target="_blank" rel="noopener">Mr-Roboto</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="X0XRMX/X0XRMX.zip" download>DOWNLOAD</a> <a class="src" href="X0XRMX/X0XRMX-source.zip" download>source</a></td></tr>
     <tr data-n="zen-1 aceyprime"><td>ZEN-1 <span class="ver">1.2</span></td>
-      <td><a href="https://github.com/aceyprime/zen-1" target="_blank" rel="noopener">aceyprime</a></td><td>GPL</td>
+      <td><a href="https://github.com/aceyprime/zen-1" target="_blank" rel="noopener">aceyprime</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ZEN/ZEN.zip" download>DOWNLOAD</a> <a class="src" href="ZEN/ZEN-source.zip" download>source</a></td></tr>
     <tr data-n="zp-12 zvenson"><td>ZP-12 <span class="ver">2.5</span></td>
-      <td><a href="https://github.com/zvenson/zp12" target="_blank" rel="noopener">zvenson</a></td><td>GPL</td>
+      <td><a href="https://github.com/zvenson/zp12" target="_blank" rel="noopener">zvenson</a> <span class="ver">GPL</span></td><td><span class="chip">untested</span></td>
       <td><a class="btn sm" href="ZP12/ZP12.zip" download>DOWNLOAD</a> <a class="src" href="ZP12/ZP12-source.zip" download>source</a></td></tr>
   </table></div>
-  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code this build was made from, with the porting changes.</p>
+  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code the build was made from, with the porting changes. The menu shows up to 160 firmwares (release 1.1).</p>
 </section>
 
 <section class="pop" id="card">
@@ -742,7 +725,7 @@ document.getElementById('all').addEventListener('click', async (e) => {
 document.getElementById('report-form').action = 'https://formsubmit.co/' + atob('YmxhaXJlbHlvbnNAZ21haWwuY29t');
 document.getElementById('find').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('#more tr[data-n]').forEach(r => r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none');
+  document.querySelectorAll('#list tr[data-n]').forEach(r => r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none');
 });
 if (new URLSearchParams(location.search).has('sent')) document.getElementById('sent').style.display = 'block';
 document.getElementById('copy').addEventListener('click', async (e) => {

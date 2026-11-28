@@ -38,7 +38,7 @@ css = """
 .port .row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
 .port .name { font-size: 20px; }
 .port .ver { color: #555; }
-.chip { font-size: 13px; padding: 1px 8px; border: 2px solid #c8006a; color: #c8006a; }
+.chip { font-size: 13px; white-space: nowrap; padding: 1px 8px; border: 2px solid #c8006a; color: #c8006a; }
 .chip.ok { border-color: #000; color: #000; }
 .port .by { font-size: 14px; color: #444; margin-bottom: 6px; }
 .port p { margin-bottom: 8px; }
@@ -56,29 +56,27 @@ textarea { min-height: 120px; resize: vertical; }
 .sent { background: var(--pink); color: #000; padding: 10px 14px; margin: 18px 0 0; display: none; }
 .btn.sm { padding: 2px 10px; font-size: 14px; }
 a.src { font-size: 13px; color: #555; }
-#more td { vertical-align: middle; }
-#more .ver { color: #777; font-size: 13px; }
+#list td { vertical-align: middle; }
+#list td:last-child { white-space: nowrap; }
+#list .ver { color: #777; font-size: 13px; }
 #find { margin-bottom: 10px; width: calc(100% - 32px); }
 pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-monospace, monospace; white-space: pre-wrap;
   max-height: 320px; overflow: auto; margin-bottom: 10px; }
 """
 
-cards = []
-for stem, name, ver, by, link, what, status in PORTS:
-    cls = "chip ok" if status == "CONFIRMED" else "chip"
-    cards.append(f"""  <div class="port">
-    <div class="row"><span class="name">{html.escape(name)}</span><span class="ver">{ver}</span><span class="{cls}">{status}</span></div>
-    <div class="by">By <a href="{link}" target="_blank" rel="noopener">{html.escape(by)}</a>. Ported by Blairy.</div>
-    <p>{html.escape(what)}</p>
-    <a class="btn" href="{stem}/{stem}.zip" download>DOWNLOAD</a><span class="size">{mb(stem):.1f} MB zip</span>
-  </div>""")
 MORE = [l.rstrip("\n").split("\t") for l in open(os.path.join(ROOT, "tools/more_ports.tsv"), encoding="utf-8") if l.strip()]
 MORE.sort(key=lambda r: r[1].lower())
+SRC = "https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/tree/gh-pages/source/ports/"
+# one list: the popular ones first (porter-tested), then the rest A-Z (untested)
+ROWS = [(st, n, v, by, link, "GPL", f"{SRC}{st.lower()}", "porter tested") for st, n, v, by, link, what, status in PORTS] + \
+       [(st, n, v, own, url, lic, f"{st}/{st}-source.zip", "untested") for st, n, v, own, url, lic in MORE]
 rows = []
-for stem, name, ver, owner, url, lic in MORE:
+for stem, name, ver, owner, url, lic, src, stat in ROWS:
+    dl = ' download' if src.endswith('.zip') else ' target="_blank" rel="noopener"'
+    cls = "chip ok" if stat == "porter tested" else "chip"
     rows.append(f"""    <tr data-n="{html.escape((name + ' ' + owner).lower())}"><td>{html.escape(name)} <span class="ver">{html.escape(ver)}</span></td>
-      <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a></td><td>{lic}</td>
-      <td><a class="btn sm" href="{stem}/{stem}.zip" download>DOWNLOAD</a> <a class="src" href="{stem}/{stem}-source.zip" download>source</a></td></tr>""")
+      <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a> <span class="ver">{lic}</span></td><td><span class="{cls}">{stat}</span></td>
+      <td><a class="btn sm" href="{stem}/{stem}.zip" download>DOWNLOAD</a> <a class="src" href="{src}"{dl}>source</a></td></tr>""")
 opts = "\n".join([f'          <option>{html.escape(n)} {v}</option>' for _, n, v, *_ in PORTS] + [f'          <option>{html.escape(n)} {v} (untested)</option>' for _, n, v, *_ in MORE])
 
 body = f"""{css}</style>
@@ -91,28 +89,21 @@ body = f"""{css}</style>
 </header>
 
 <nav class="toc">
-  <a href="#list">LIST</a><a href="#more">MORE PORTS ({len(MORE)})</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
+  <a href="#list">PORTS ({len(ROWS)})</a><a href="#card">ONTO THE CARD</a><a href="#report">REPORT</a><a href="#port">PORT YOUR OWN</a><a href="../guide/">BUILD GUIDE</a>
 </nav>
 
 <div class="sent" id="sent" role="status">Thanks! Your report is on its way to Blairy.</div>
 
 <section class="pop" id="list">
-  <h2>Ports</h2>
+  <h2>Ports ({len(ROWS)})</h2>
   <p><button class="btn big" type="button" id="all">DOWNLOAD ALL</button><span class="size" id="all-size">every port on this page, in one zip</span></p>
-{chr(10).join(cards)}
-  <p class="note"><b class="pink">UNCONFIRMED</b> means only its porter has tested it so far. Tried one? Tell us below, it helps everyone.</p>
-</section>
-
-<section class="pop" id="more">
-  <h2>More ports: {len(MORE)} untested</h2>
-  <p>FM-1 firmwares by other people, ported to the Mod Swapper in one big batch. <b class="warn">Not tried on hardware yet.</b> Some will work, some won't: that's what the reports are for.</p>
-  <p class="note">The menu shows every firmware on the card (up to 160) from release 1.1, so load as many as you like. Tried one? <a href="#report">Tell us</a> if it works or not, and it moves up to the list above.</p>
-  <input id="find" type="search" placeholder="Search {len(MORE)} ports by name or author..." aria-label="Search ports">
+  <p class="note"><b>porter tested</b> = its porter ran it on a Mod Swapper. <b class="pink">untested</b> = built but not tried on hardware yet: some will work, some won't. Tried one? <a href="#report">Tell us</a>, it helps everyone.</p>
+  <input id="find" type="search" placeholder="Search {len(ROWS)} ports by name or author..." aria-label="Search ports">
   <div class="tbl"><table>
-    <tr><th>Port</th><th>Original by</th><th>Licence</th><th></th></tr>
+    <tr><th>Port</th><th>Original by</th><th>Status</th><th></th></tr>
 {chr(10).join(rows)}
   </table></div>
-  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code this build was made from, with the porting changes.</p>
+  <p class="note">Every one keeps its original authors' credits and licence. "source" is the code the build was made from, with the porting changes. The menu shows up to 160 firmwares (release 1.1).</p>
 </section>
 
 <section class="pop" id="card">
@@ -217,7 +208,7 @@ document.getElementById('all').addEventListener('click', async (e) => {{
 document.getElementById('report-form').action = 'https://formsubmit.co/' + atob('{FORM_B64}');
 document.getElementById('find').addEventListener('input', e => {{
   const q = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('#more tr[data-n]').forEach(r => r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none');
+  document.querySelectorAll('#list tr[data-n]').forEach(r => r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none');
 }});
 if (new URLSearchParams(location.search).has('sent')) document.getElementById('sent').style.display = 'block';
 document.getElementById('copy').addEventListener('click', async (e) => {{

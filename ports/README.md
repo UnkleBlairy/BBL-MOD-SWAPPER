@@ -13,7 +13,7 @@ FM-1 firmwares ported to the BBL Mod Swapper. Each one goes on your SD card and 
 | [SLOOP](SLOOP/) | 2.8.5 | isod89 | UNCONFIRMED | [SLOOP.zip](SLOOP/SLOOP.zip) |
 | [X0X](X0X/) | 1.2.2 | Charles Vestal | UNCONFIRMED | [X0X.zip](X0X/X0X.zip) |
 
-Plus **113 more ports, untested on hardware yet**: search and download them on the ports page: https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/#more
+Plus **113 more ports, untested on hardware yet**: search and download them on the ports page: https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/#list
 
 A port stays **UNCONFIRMED** until someone other than its porter tests it. Tried one? [Report it](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml).
 
