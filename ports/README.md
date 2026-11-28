@@ -4,7 +4,7 @@
 
 FM-1 firmwares ported to the BBL Mod Swapper. Each one goes on your SD card and shows up in the Mod Swapper's menu.
 
-**Get them all at once: [ALL-PORTS.zip](ALL-PORTS.zip)**. Or open a port's folder below for just that one.
+**Get them all at once: press DOWNLOAD ALL on the [ports page](https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/)**. Or open a port's folder below for just that one.
 
 | Port | Version | Original by | Status | Download |
 |---|---|---|---|---|
@@ -15,8 +15,6 @@ FM-1 firmwares ported to the BBL Mod Swapper. Each one goes on your SD card and 
 
 Plus **113 more ports, untested on hardware yet**: search and download them on the ports page: https://unkleblairy.github.io/BBL-MOD-SWAPPER/ports/#more
 
-Felucca (by Leo Kuroshita) is built into the Teensy, so it's always in the menu with no file needed.
-
 A port stays **UNCONFIRMED** until someone other than its porter tests it. Tried one? [Report it](https://github.com/UnkleBlairy/BBL-MOD-SWAPPER/issues/new?template=test-report.yml).
 
 ## Put ports on your SD card
@@ -26,7 +24,7 @@ A port stays **UNCONFIRMED** until someone other than its porter tests it. Tried
 3. Copy that `ROMS` folder to the top of your SD card. If the card already has a `ROMS` folder, let the files go into it.
 4. Card back in the Teensy, switch the FM-1 on, pick the port in the menu.
 
-Each port is three files: `NAME.R1`, `NAME.R2` and `NAME.R3`, the same firmware built for each of the Teensy's three flash slots. Keep all three. The menu shows up to 160 firmwares, Felucca included (release 1.1; release 1 showed 16).
+Each port is three files: `NAME.R1`, `NAME.R2` and `NAME.R3`, the same firmware built for each of the Teensy's three flash slots. Keep all three. The menu shows up to 160 firmwares (release 1.1; release 1 showed 16).
 
 To remove a port, delete its three files from `ROMS`. Its saves are in `DATA` on the card: delete those too if you don't want them.
 

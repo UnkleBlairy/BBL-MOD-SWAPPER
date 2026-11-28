@@ -79,7 +79,6 @@ for stem, name, ver, owner, url, lic in MORE:
     rows.append(f"""    <tr data-n="{html.escape((name + ' ' + owner).lower())}"><td>{html.escape(name)} <span class="ver">{html.escape(ver)}</span></td>
       <td><a href="{url}" target="_blank" rel="noopener">{html.escape(owner)}</a></td><td>{lic}</td>
       <td><a class="btn sm" href="{stem}/{stem}.zip" download>DOWNLOAD</a> <a class="src" href="{stem}/{stem}-source.zip" download>source</a></td></tr>""")
-total = os.path.getsize(os.path.join(ROOT, "ports/ALL-PORTS.zip")) / 1e6
 opts = "\n".join([f'          <option>{html.escape(n)} {v}</option>' for _, n, v, *_ in PORTS] + [f'          <option>{html.escape(n)} {v} (untested)</option>' for _, n, v, *_ in MORE])
 
 body = f"""{css}</style>
@@ -99,8 +98,7 @@ body = f"""{css}</style>
 
 <section class="pop" id="list">
   <h2>Ports</h2>
-  <p><a class="btn big" href="ALL-PORTS.zip" download>DOWNLOAD ALL</a><span class="size">{total:.1f} MB zip, every port</span></p>
-  <p class="note">Felucca (by Leo Kuroshita) is built into the Teensy: it's always in the menu, no download needed.</p>
+  <p><button class="btn big" type="button" id="all">DOWNLOAD ALL</button><span class="size" id="all-size">every port on this page, in one zip</span></p>
 {chr(10).join(cards)}
   <p class="note"><b class="pink">UNCONFIRMED</b> means only its porter has tested it so far. Tried one? Tell us below, it helps everyone.</p>
 </section>
@@ -144,7 +142,6 @@ body = f"""{css}</style>
       <label><span>Which port</span>
         <select name="Port">
           <option>Not about one port</option>
-          <option>Felucca (built in)</option>
 {opts}
           <option>My own port</option>
         </select></label>
@@ -184,7 +181,39 @@ body = f"""{css}</style>
 </footer>
 </main>
 {logo}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
+// DOWNLOAD ALL: fetch every port's zip, put all their ROMS files in one zip, save it (too big to host as one file)
+document.getElementById('all').addEventListener('click', async (e) => {{
+  const b = e.target, info = document.getElementById('all-size'), old = info.textContent;
+  b.disabled = true;
+  // every port's DOWNLOAD link on the page (not the source zips), so new ports are included automatically
+  const ALL = [...new Set([...document.querySelectorAll('a.btn[download][href$=".zip"]')].map(a => a.getAttribute('href')))];
+  try {{
+    const out = new JSZip(); let done = 0, i = 0;
+    out.file('READ ME.txt', 'BBL Mod Swapper: every port.\\r\\nCopy the ROMS folder to the top of your SD card.\\r\\nKeep all three files of each port (.R1 .R2 .R3).\\r\\nMost are untested: see ' + location.href.split('#')[0] + '\\r\\n');
+    async function worker() {{
+      while (i < ALL.length) {{
+        const url = ALL[i++];
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(url);
+        const z = await JSZip.loadAsync(await r.arrayBuffer());
+        for (const [name, f] of Object.entries(z.files))
+          if (!f.dir && name.startsWith('ROMS/')) out.file(name, await f.async('uint8array'));
+        info.textContent = 'Fetching ports: ' + (++done) + ' of ' + ALL.length + '...';
+      }}
+    }}
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    info.textContent = 'Making the zip...';
+    const blob = await out.generateAsync({{type: 'blob', compression: 'STORE'}});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'BBL-MOD-SWAPPER-ALL-PORTS.zip';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    info.textContent = 'Done: ' + ALL.length + ' ports saved to your Downloads.';
+  }} catch (err) {{
+    info.textContent = 'Something went wrong (' + err.message + '). Try again, or download them one by one below.';
+  }}
+  b.disabled = false;
+}});
 document.getElementById('report-form').action = 'https://formsubmit.co/' + atob('{FORM_B64}');
 document.getElementById('find').addEventListener('input', e => {{
   const q = e.target.value.trim().toLowerCase();

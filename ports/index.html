@@ -101,8 +101,7 @@ pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-mo
 
 <section class="pop" id="list">
   <h2>Ports</h2>
-  <p><a class="btn big" href="ALL-PORTS.zip" download>DOWNLOAD ALL</a><span class="size">5.8 MB zip, every port</span></p>
-  <p class="note">Felucca (by Leo Kuroshita) is built into the Teensy: it's always in the menu, no download needed.</p>
+  <p><button class="btn big" type="button" id="all">DOWNLOAD ALL</button><span class="size" id="all-size">every port on this page, in one zip</span></p>
   <div class="port">
     <div class="row"><span class="name">BBL Jam Box</span><span class="ver">0.9</span><span class="chip">UNCONFIRMED</span></div>
     <div class="by">By <a href="https://github.com/UnkleBlairy/BBL-JAM-BOX" target="_blank" rel="noopener">Blairy (blairysbeatlab)</a>. Ported by Blairy.</div>
@@ -507,7 +506,6 @@ pre.prompt { background: #000; color: #fff; padding: 12px; font: 13px/1.45 ui-mo
       <label><span>Which port</span>
         <select name="Port">
           <option>Not about one port</option>
-          <option>Felucca (built in)</option>
           <option>BBL Jam Box 0.9</option>
           <option>JIANT FM 0.9.18</option>
           <option>SLOOP 2.8.5</option>
@@ -708,7 +706,39 @@ Ask me before you change anything outside ports/&lt;name&gt;/, build.rs and buil
   text("BBL", 0, 12, 4, "#ff1494"); text("MOD", 91, 11, 8, "#ffffff"); text("SWAPPER", 179, 5, 2, "#ffffff");
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
+// DOWNLOAD ALL: fetch every port's zip, put all their ROMS files in one zip, save it (too big to host as one file)
+document.getElementById('all').addEventListener('click', async (e) => {
+  const b = e.target, info = document.getElementById('all-size'), old = info.textContent;
+  b.disabled = true;
+  // every port's DOWNLOAD link on the page (not the source zips), so new ports are included automatically
+  const ALL = [...new Set([...document.querySelectorAll('a.btn[download][href$=".zip"]')].map(a => a.getAttribute('href')))];
+  try {
+    const out = new JSZip(); let done = 0, i = 0;
+    out.file('READ ME.txt', 'BBL Mod Swapper: every port.\r\nCopy the ROMS folder to the top of your SD card.\r\nKeep all three files of each port (.R1 .R2 .R3).\r\nMost are untested: see ' + location.href.split('#')[0] + '\r\n');
+    async function worker() {
+      while (i < ALL.length) {
+        const url = ALL[i++];
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(url);
+        const z = await JSZip.loadAsync(await r.arrayBuffer());
+        for (const [name, f] of Object.entries(z.files))
+          if (!f.dir && name.startsWith('ROMS/')) out.file(name, await f.async('uint8array'));
+        info.textContent = 'Fetching ports: ' + (++done) + ' of ' + ALL.length + '...';
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    info.textContent = 'Making the zip...';
+    const blob = await out.generateAsync({type: 'blob', compression: 'STORE'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'BBL-MOD-SWAPPER-ALL-PORTS.zip';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    info.textContent = 'Done: ' + ALL.length + ' ports saved to your Downloads.';
+  } catch (err) {
+    info.textContent = 'Something went wrong (' + err.message + '). Try again, or download them one by one below.';
+  }
+  b.disabled = false;
+});
 document.getElementById('report-form').action = 'https://formsubmit.co/' + atob('YmxhaXJlbHlvbnNAZ21haWwuY29t');
 document.getElementById('find').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase();
