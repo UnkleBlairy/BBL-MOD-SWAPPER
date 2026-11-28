@@ -1,0 +1,11 @@
+{
+  "about": "Every Mod Swapper release, newest first: the first one is the latest. Paths are relative to this folder. The installer (webapp/installer) reads this.",
+  "releases": [
+    {"v": "1.2", "date": "2026-11-29", "notes": "MIDI: the Teensy's USB is a MIDI port (in and out) and the FM-1's MIDI jack is MIDI in. Jam Box sends MIDI clock. Cleaner menu: names only, long names scroll.",
+     "hex": "1.2/teensy-fm1.hex", "fwsc": "1.2/fm1-teensy-terminal.fwsc", "sd": "1.2/SD-card-1.2.zip"},
+    {"v": "1.1", "date": "2026-11-28", "notes": "The menu shows every firmware on the card (up to 160, was 16).",
+     "hex": "1.1/teensy-fm1.hex", "fwsc": "1.0/fm1-teensy-terminal.fwsc", "sd": "1.0/SD-card-1.0.zip"},
+    {"v": "1.0", "date": "2026-11-27", "notes": "First release: Felucca, BBL Jam Box, JIANT FM, Sloop and X0X.",
+     "hex": "1.0/teensy-fm1.hex", "fwsc": "1.0/fm1-teensy-terminal.fwsc", "sd": "1.0/SD-card-1.0.zip"}
+  ]
+}

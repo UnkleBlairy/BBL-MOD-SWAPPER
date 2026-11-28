@@ -154,11 +154,11 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
   <h2>3  SD card</h2>
   <ol>
     <li>Format the card FAT32.</li>
-    <li>Unzip the <b>SD</b> folder from the Patreon zip and copy what's inside it to the top of the card: <kbd>ROMS</kbd> <kbd>SAMPLES</kbd> <kbd>DATA</kbd> <kbd>STATES</kbd>.</li>
+    <li>Download the SD card files from the <a href="../webapp/installer/">installer</a> (step 3), unzip them and copy what's inside to the top of the card: <kbd>ROMS</kbd> <kbd>SAMPLES</kbd> <kbd>DATA</kbd> <kbd>STATES</kbd>.</li>
     <li>Put your own samples (WAV) anywhere in <kbd>SAMPLES</kbd>.</li>
     <li>Card into the Teensy, label up.</li>
   </ol>
-  <p><b>The ports:</b> the firmwares in the menu are files in <kbd>ROMS</kbd>. The Patreon zip already has them. New and updated ones go up on the <a href="../ports/"><b class="pink">PORTS PAGE</b></a>:</p>
+  <p><b>The ports:</b> the firmwares in the menu are files in <kbd>ROMS</kbd>. The SD card files already have the main ones. New and updated ones go up on the <a href="../ports/"><b class="pink">PORTS PAGE</b></a>:</p>
   <ol>
     <li>Press <b>DOWNLOAD</b> on a port, or <b>DOWNLOAD ALL</b>.</li>
     <li>Unzip it and copy its <kbd>ROMS</kbd> folder to the top of the card. The files go in with the ones already there.</li>
@@ -179,10 +179,10 @@ footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: cente
   <p>Everything happens in one page, in Chrome or Edge on a computer:</p>
   <p><a href="../webapp/installer/"><b class="pink">BBL MOD SWAPPER INSTALLER</b></a></p>
   <ol>
-    <li><b>Teensy:</b> plug it into the computer by micro-USB, choose the <kbd>.hex</kbd> from the Patreon zip, press Flash Teensy, press the Teensy's white button.</li>
-    <li><b>FM-1:</b> plug it straight into the computer (its own USB-C, no hub), switch it on, choose the <kbd>.fwsc</kbd> from the zip, press Install. Stay with it until it says Done.</li>
+    <li><b>Teensy:</b> plug it into the computer by micro-USB, press Flash Teensy (the latest version loads by itself), press the Teensy's white button.</li>
+    <li><b>FM-1:</b> plug it straight into the computer (its own USB-C, no hub), switch it on, press Install. Stay with it until it says Done.</li>
   </ol>
-  <p class="note">Rather use PJRC's own app for the Teensy? Open the same .hex in <a href="https://www.pjrc.com/teensy/loader.html" target="_blank" rel="noopener">Teensy Loader</a>.</p>
+  <p class="note">The installer always has the latest version. Older ones are in its <b>All versions</b> list if you want to go back. Rather use PJRC's own app for the Teensy? Download the .hex from that list and open it in <a href="https://www.pjrc.com/teensy/loader.html" target="_blank" rel="noopener">Teensy Loader</a>.</p>
 </section>
 
 <section class="pop" id="play">

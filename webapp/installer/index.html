@@ -51,6 +51,17 @@ progress::-moz-progress-bar { background: var(--pink); }
 #status { margin: 10px 0 0; min-height: 1.5em; font-size: 18px; }
 .stat-slot progress { margin-top: 6px; }
 .stat-slot:empty { display: none; }
+.rel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rel select { font: inherit; letter-spacing: inherit; padding: 5px 8px; border: 2px solid #000; background: #fff; color: #000; }
+.using { font-size: 15px; }
+.using b { background: #000; color: #fff; padding: 1px 6px; }
+details.own { margin: 4px 16px 10px; font-size: 14px; }
+details.own > summary { cursor: pointer; color: #444; background: none; padding: 0; margin: 0 0 6px; font-size: 14px; text-transform: none; }
+.vers { width: calc(100% - 32px); border-collapse: collapse; font-size: 14px; }
+.vers td { border-top: 2px solid #000; padding: 6px 4px; vertical-align: top; }
+.vers td:first-child { white-space: nowrap; font-size: 16px; }
+.vers a { color: #000; margin-right: 10px; white-space: nowrap; }
+.vers .latest { background: var(--pink); padding: 0 5px; font-size: 12px; }
 pre { color: var(--dim); font: 13px/1.5 ui-monospace, monospace; letter-spacing: 0; white-space: pre-wrap; margin: 10px 0 0; }
 pre:empty { display: none; }
 footer { margin: 24px 0 0; color: var(--dim); font-size: 13px; text-align: center; }
@@ -66,6 +77,13 @@ footer nav a { margin: 0 8px; color: #fff; }
   <div><h1>INSTALLER</h1><p class="sub" data-t="tagline"></p></div>
 </header>
 
+<section class="pop" id="version">
+  <h2 data-t="vTitle"></h2>
+  <p id="v-notes"></p>
+  <p class="rel"><label for="v-pick" data-t="vPick"></label> <select id="v-pick"></select></p>
+  <p class="small" data-t="vHelp"></p>
+</section>
+
 <section class="pop">
   <h2 data-t="t1"></h2>
   <ol>
@@ -73,7 +91,9 @@ footer nav a { margin: 0 8px; color: #fff; }
     <li data-t="t1b"></li>
     <li data-t="t1c"></li>
   </ol>
-  <p><label><span data-t="hexLabel"></span><br><input id="hex-file" type="file" accept=".hex"></label></p>
+  <p class="using" id="hex-using"></p>
+  <details class="own"><summary data-t="ownFile"></summary>
+  <p><label><span data-t="hexLabel"></span><br><input id="hex-file" type="file" accept=".hex"></label></p></details>
   <p><button id="teensy-go" class="go" disabled data-t="teensyGo"></button></p>
   <div class="stat-slot" data-sec="teensy"></div>
   <p class="small"><span data-t="t1alt"></span>
@@ -86,7 +106,9 @@ footer nav a { margin: 0 8px; color: #fff; }
     <li data-t="t2a"></li>
     <li data-t="t2b"></li>
   </ol>
-  <p><label><span data-t="fileLabel"></span><br><input id="pkg-file" type="file" accept=".fwsc"></label></p>
+  <p class="using" id="pkg-using"></p>
+  <details class="own"><summary data-t="ownFile"></summary>
+  <p><label><span data-t="fileLabel"></span><br><input id="pkg-file" type="file" accept=".fwsc"></label></p></details>
   <p class="warn" data-t="warn"></p>
   <p class="small" data-t="direct"></p>
   <p><button id="go" class="go" disabled data-t="install"></button></p>
@@ -98,11 +120,17 @@ footer nav a { margin: 0 8px; color: #fff; }
 <section class="pop">
   <h2 data-t="t3"></h2>
   <ol>
-    <li data-t="t3a"></li>
+    <li><span data-t="t3a"></span> <a id="sd-link" href="#" download data-t="sdGet"></a></li>
     <li data-t="t3b"></li>
     <li data-t="t3c"></li>
   </ol>
 </section>
+
+<details class="pop" id="all-versions">
+  <summary data-t="vAll"></summary>
+  <p class="small" data-t="vAllHelp"></p>
+  <table class="vers" id="vers"></table>
+</details>
 
 <details class="pop">
   <summary data-t="stockTitle"></summary>
@@ -797,21 +825,26 @@ const TEXT = {
     tagline: "Turns your FM-1 into a Mod Swapper. Chrome or Edge on a computer.",
     t1: "1  Teensy",
     t1a: "Plug the Teensy into this computer with its micro-USB cable (a data cable).",
-    t1b: "Choose the Mod Swapper .hex file from the Patreon post.",
+    t1b: "The Teensy file loads by itself from this page (the version picked at the top).",
     t1c: "Press Flash Teensy, then press the little white button on the Teensy and pick it in the list the browser shows.",
     hexLabel: "Mod Swapper .hex file", teensyGo: "Flash Teensy",
-    t1alt: "Rather use PJRC's own app? Open the same .hex in",
+    t1alt: "Rather use PJRC's own app? Download the .hex from All versions (bottom of the page) and open it in",
     t2: "2  FM-1",
     t2a: "Plug the FM-1 straight into this computer with a USB-C data cable and switch it on.",
-    t2b: "Choose the Mod Swapper .fwsc file from the Patreon post, then press Install.",
+    t2b: "Press Install. The FM-1 file loads by itself from this page too.",
     t3: "3  Hook up",
-    t3a: "Put the microSD card (the SD folder from the Patreon zip on it) into the Teensy.",
+    t3a: "Unzip the SD card files onto a microSD card (FAT32) and put it into the Teensy.",
     t3b: "Plug the FM-1 into the cut USB-C cable on the Teensy.",
     t3c: "Power the Teensy from a USB wall charger. The FM-1 starts on the Mod Swapper menu.",
     warn: "Do not unplug the USB cable while writing.",
     install: "Install", other: "",
     fileLabel: "Mod Swapper .fwsc file", fileReady: "Ready to install: ", fileBad: "Not a Mod Swapper file: ",
-    pickFile: "Choose the files from the Patreon post to start.",
+    pickFile: "Loading the files...",
+    vTitle: "Version", vPick: "Install version:", vLatest: " (latest)",
+    vHelp: "Always use the latest unless you want to go back to an older one. Every version is kept in the list at the bottom.",
+    vAll: "All versions (roll back)", vAllHelp: "Every Mod Swapper release, newest first. Pick one in the Version box at the top to install it, or download its files.",
+    ownFile: "Use my own file instead", using: "Using: ", sdGet: "Download the SD card files",
+    dlHex: "Teensy .hex", dlFwsc: "FM-1 .fwsc", dlSd: "SD card .zip", relFail: "Could not load the version list: ",
     direct: "Connect the FM-1 directly to the computer: NO USB HUB. Charge it first, and stay with it until it says Done: don't let the computer sleep, and don't close or refresh this page. If something goes wrong, copy the message below before refreshing.",
     brick: "If an install fails and the FM-1 no longer starts, recovering it needs a Transporter:",
     back: "Get official FM-1 V15 from M-VAVE (link below) and select the unmodified FM-1_015.fwsc. The browser checks it here; it is not sent anywhere.",
@@ -867,19 +900,42 @@ let writing = false, stock = null, stockFileEpoch = 0;
 const lockInstaller = (on) => { writing = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; $("pkg-file").disabled = on; if (typeof lockTeensy === "function") lockTeensy(); };
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
 
-(async () => {
-  if (!navigator.requestMIDIAccess) { sayK("nomidi"); return; }
-  if (!meta.pkg) { sayK("pickFile"); return; }
+// Releases: firmware/releases/releases.json lists every version, newest first (the first one is the latest).
+// The version picked at the top is fetched from the site: its Teensy .hex and FM-1 .fwsc go straight into steps 1 and 2.
+const REL = "../../firmware/releases/";
+let releases = [], relEpoch = 0;
+const fileOf = (r, k) => r[k] ? REL + r[k] : null;
+async function pickRelease(v) {
+  const r = releases.find((x) => x.v === v); if (!r) return;
+  const epoch = ++relEpoch;
+  $("v-notes").textContent = `${r.v}${r === releases[0] ? t("vLatest") : ""} · ${r.date}: ${r.notes}`;
+  $("sd-link").href = fileOf(r, "sd") || "#";
+  $("hex-using").textContent = $("pkg-using").textContent = t("pickFile");
+  sayK("pickFile");
   try {
-    const r = await fetch(meta.pkg, { cache: "no-cache" });   // always ask the server: a new build keeps the name
-    if (!r.ok) throw new Error(`${meta.pkg}: HTTP ${r.status}`);
-    const pkg = new Uint8Array(await r.arrayBuffer());
-    if (productOf(pkg) !== meta.product) { sayK("badpkg"); return; }
-    if (product !== meta.product) return;              // (a file was chosen meanwhile: that one stays)
-    image = logicalImage(pkg);
-    say(`BBL JAM BOX ${meta.version}`);
-    $("go").disabled = writing;
-  } catch (e) { sayK("loadfail", e.message); }
+    const [hx, fw] = await Promise.all([fetch(fileOf(r, "hex"), { cache: "no-cache" }), fetch(fileOf(r, "fwsc"), { cache: "no-cache" })]);
+    if (!hx.ok || !fw.ok) throw new Error(`HTTP ${hx.status}/${fw.status}`);
+    const img = parseHex(await hx.text()), pkg = new Uint8Array(await fw.arrayBuffer()), id = productOf(pkg);
+    if (epoch !== relEpoch) return;                     // another version was picked meanwhile
+    if (!$("hex-file").files[0]) { teensyImg = img; lockTeensy(); }
+    if (!$("pkg-file").files[0] && /^FM-1_1[3-9]\d\d$/.test(id)) { image = logicalImage(pkg); product = id; lockInstaller(writing); }
+    $("hex-using").innerHTML = `${t("using")}<b>Mod Swapper ${r.v}</b> teensy-fm1.hex`;
+    $("pkg-using").innerHTML = `${t("using")}<b>Mod Swapper ${r.v}</b> ${r.fwsc.split("/").pop()}`;
+    say(`Mod Swapper ${r.v}: ready`);
+  } catch (e) { if (epoch === relEpoch) sayK("loadfail", e.message); }
+}
+(async () => {
+  if (!navigator.requestMIDIAccess) sayK("nomidi");
+  try {
+    const j = await (await fetch(REL + "releases.json", { cache: "no-cache" })).json();
+    releases = j.releases;
+    $("v-pick").innerHTML = releases.map((r, i) => `<option value="${r.v}">${r.v}${i ? "" : t("vLatest")} (${r.date})</option>`).join("");
+    $("vers").innerHTML = releases.map((r, i) => `<tr><td>${r.v}${i ? "" : ' <span class="latest">LATEST</span>'}<br><span class="small">${r.date}</span></td>` +
+      `<td>${r.notes}<br><a href="${fileOf(r, "hex")}" download>${t("dlHex")}</a><a href="${fileOf(r, "fwsc")}" download>${t("dlFwsc")}</a>` +
+      (r.sd ? `<a href="${fileOf(r, "sd")}" download>${t("dlSd")}</a>` : "") + `</td></tr>`).join("");
+    $("v-pick").addEventListener("change", () => pickRelease($("v-pick").value));
+    await pickRelease(releases[0].v);
+  } catch (e) { sayK("relFail", e.message); }
 })();
 
 $("go").addEventListener("click", async () => {
