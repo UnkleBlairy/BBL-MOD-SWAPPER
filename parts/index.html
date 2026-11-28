@@ -1,0 +1,608 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>BBL Parts Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* BBL Parts Lab: Mod Swapper look. Black page, white boxes with a pink banner, BLB Pixel.
+   Layout: 3D FM-1 on the left (sticky), part pickers on the right; stacked on phones. */
+@font-face { font-family: "BLBPixel"; src: url("data:font/ttf;base64,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c2lnbi5CTEIgUGl4ZWwgNyBDaHVua3lSZWd1bGFyQkxCIFBpeGVsIDcgQ2h1bmt5IFJlZ3VsYXIgMS4wQkxCIFBpeGVsIDcgQ2h1bmt5IFJlZ3VsYXJWZXJzaW9uIDEuMEJMQlBpeGVsN0NodW5reS1SZWd1bGFyVGhpcyBGb250IFNvZnR3YXJlIGlzIGxpY2Vuc2VkIHVuZGVyIHRoZSBTSUwgT3BlbiBGb250IExpY2Vuc2UsIFZlcnNpb24gMS4xLiBodHRwczovL29wZW5mb250bGljZW5zZS5vcmdodHRwczovL29wZW5mb250bGljZW5zZS5vcmcAQwBvAHAAeQByAGkAZwBoAHQAIAAyADAAMgA2ACAAYgBsAGEAaQByAHkAcwBiAGUAYQB0AGwAYQBiAC4AIABPAHIAaQBnAGkAbgBhAGwAIABkAGUAcwBpAGcAbgAuAEIATABCACAAUABpAHgAZQBsACAANwAgAEMAaAB1AG4AawB5AFIAZQBnAHUAbABhAHIAQgBMAEIAIABQAGkAeABlAGwAIAA3ACAAQwBoAHUAbgBrAHkAIABSAGUAZwB1AGwAYQByACAAMQAuADAAQgBMAEIAIABQAGkAeABlAGwAIAA3ACAAQwBoAHUAbgBrAHkAIABSAGUAZwB1AGwAYQByAFYAZQByAHMAaQBvAG4AIAAxAC4AMABCAEwAQgBQAGkAeABlAGwANwBDAGgAdQBuAGsAeQAtAFIAZQBnAHUAbABhAHIAVABoAGkAcwAgAEYAbwBuAHQAIABTAG8AZgB0AHcAYQByAGUAIABpAHMAIABsAGkAYwBlAG4AcwBlAGQAIAB1AG4AZABlAHIAIAB0AGgAZQAgAFMASQBMACAATwBwAGUAbgAgAEYAbwBuAHQAIABMAGkAYwBlAG4AcwBlACwAIABWAGUAcgBzAGkAbwBuACAAMQAuADEALgAgAGgAdAB0AHAAcwA6AC8ALwBvAHAAZQBuAGYAbwBuAHQAbABpAGMAZQBuAHMAZQAuAG8AcgBnAGgAdAB0AHAAcwA6AC8ALwBvAHAAZQBuAGYAbwBuAHQAbABpAGMAZQBuAHMAZQAuAG8AcgBnAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAMBAgEDAQQBBQEGAQcBCAEJAQoBCwEMAQ0BDgEPARABEQESARMBFAEVARYBFwEYARkBGgEbARwBHQEeAR8BIAEhASIBIwEkASUBJgEnASgBKQEqASsBLAEtAS4BLwEwATEBMgEzATQBNQE2ATcBOAE5AToBOwE8AT0BPgE/AUABQQFCAUMBRAFFAUYBRwFIAUkBSgFLAUwBTQFOAU8BUAFRAVIBUwFUAVUBVgFXAVgBWQFaAVsBXAFdAV4BXwd1bmkwMDIxB3VuaTAwMjIHdW5pMDAyMwd1bmkwMDI0B3VuaTAwMjUHdW5pMDAyNgd1bmkwMDI3B3VuaTAwMjgHdW5pMDAyOQd1bmkwMDJBB3VuaTAwMkIHdW5pMDAyQwd1bmkwMDJEB3VuaTAwMkUHdW5pMDAyRgd1bmkwMDMwB3VuaTAwMzEHdW5pMDAzMgd1bmkwMDMzB3VuaTAwMzQHdW5pMDAzNQd1bmkwMDM2B3VuaTAwMzcHdW5pMDAzOAd1bmkwMDM5B3VuaTAwM0EHdW5pMDAzQgd1bmkwMDNDB3VuaTAwM0QHdW5pMDAzRQd1bmkwMDNGB3VuaTAwNDAHdW5pMDA0MQd1bmkwMDQyB3VuaTAwNDMHdW5pMDA0NAd1bmkwMDQ1B3VuaTAwNDYHdW5pMDA0Nwd1bmkwMDQ4B3VuaTAwNDkHdW5pMDA0QQd1bmkwMDRCB3VuaTAwNEMHdW5pMDA0RAd1bmkwMDRFB3VuaTAwNEYHdW5pMDA1MAd1bmkwMDUxB3VuaTAwNTIHdW5pMDA1Mwd1bmkwMDU0B3VuaTAwNTUHdW5pMDA1Ngd1bmkwMDU3B3VuaTAwNTgHdW5pMDA1OQd1bmkwMDVBB3VuaTAwNUIHdW5pMDA1Qwd1bmkwMDVEB3VuaTAwNUUHdW5pMDA1Rgd1bmkwMDYwB3VuaTAwNjEHdW5pMDA2Mgd1bmkwMDYzB3VuaTAwNjQHdW5pMDA2NQd1bmkwMDY2B3VuaTAwNjcHdW5pMDA2OAd1bmkwMDY5B3VuaTAwNkEHdW5pMDA2Qgd1bmkwMDZDB3VuaTAwNkQHdW5pMDA2RQd1bmkwMDZGB3VuaTAwNzAHdW5pMDA3MQd1bmkwMDcyB3VuaTAwNzMHdW5pMDA3NAd1bmkwMDc1B3VuaTAwNzYHdW5pMDA3Nwd1bmkwMDc4B3VuaTAwNzkHdW5pMDA3QQd1bmkwMDdCB3VuaTAwN0MHdW5pMDA3RAd1bmkwMDdFAAA=") format("truetype"); font-display: swap; }
+:root { color-scheme: dark; --bg: #080808; --ink: #ffffff; --pink: #ff1494; --pinkdk: #c8006a; --red: #d1152a;
+  --dim: #a8a0a5; --paper: #ffffff; --paperink: #000000; --rule: #ddd; --well: #121012; --ok: #128a3c; --amber: #b36b00;
+  --px: "BLBPixel", ui-monospace, monospace; }
+html, body { background: var(--bg); }
+body { margin: 0; color: var(--ink); font: 15px/1.5 var(--px); letter-spacing: .03em; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; align-items: center; gap: 18px; }
+.top canvas { width: 120px; height: auto; image-rendering: pixelated; flex: none; }
+.top h1 { margin: 0; font-size: 30px; line-height: 1.05; font-weight: normal; color: var(--pink); }
+.top > div, .stage, .panel { min-width: 0; }
+.top p { margin: 6px 0 0; color: var(--dim); max-width: 62ch; }
+.proto { border: 2px solid var(--pink); padding: 8px 12px; margin: 14px 0 0; }
+.proto b { color: var(--pink); font-weight: normal; }
+
+.lab { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 22px; margin-top: 18px; align-items: start; }
+.stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.view { position: relative; height: min(72vh, 660px); background: var(--well); border: 2px solid #222; }
+.view canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.view .hint { position: absolute; left: 10px; bottom: 8px; color: var(--dim); font-size: 12px; pointer-events: none; }
+.view .tag { position: absolute; right: 10px; top: 8px; background: var(--pink); color: #000; padding: 2px 8px; font-size: 13px; }
+.views { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+.pop { background: var(--paper); color: var(--paperink); padding: 0 0 16px; }
+.pop + .pop { margin-top: 18px; }
+.pop > *:not(h2) { margin-left: 16px; margin-right: 16px; }
+.pop h2 { margin: 0 0 12px; padding: 6px 16px; background: var(--pink); color: #000; font-size: 20px; line-height: 1.15;
+  font-weight: normal; text-transform: uppercase; display: flex; justify-content: space-between; gap: 10px; }
+.pop h2 span { font-size: 13px; align-self: center; }
+.pop p { margin-top: 0; margin-bottom: 10px; }
+.note { font-size: 13px; color: #555; line-height: 1.4; }
+.lbl { font-size: 13px; color: var(--pinkdk); text-transform: uppercase; margin: 12px 0 6px; }
+
+button, .btn { font: inherit; letter-spacing: inherit; cursor: pointer; }
+.chip { background: #fff; color: #000; border: 2px solid #000; padding: 3px 9px; font-size: 13px; }
+.chip[aria-pressed="true"] { background: #000; color: #fff; }
+.chip:hover { border-color: var(--pink); }
+:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+.dark .chip { background: transparent; color: var(--ink); border-color: #444; }
+.dark .chip[aria-pressed="true"] { background: var(--pink); color: #000; border-color: var(--pink); }
+
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+.types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.type { background: #fff; border: 2px solid #000; padding: 6px 6px 8px; text-align: center; color: #000; }
+.type[aria-pressed="true"] { background: #000; color: #fff; }
+.type[aria-pressed="true"] svg .k { fill: var(--pink); }
+.type svg { width: 100%; height: 62px; display: block; }
+.type svg .k { fill: #000; }
+.type svg .g { stroke: #bbb; stroke-width: .25; }
+.type b { display: block; font-weight: normal; font-size: 15px; }
+.type small { display: block; font-size: 11px; opacity: .75; }
+
+.sw { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw button { width: 28px; height: 28px; border: 2px solid #000; padding: 0; position: relative; }
+.sw button[aria-pressed="true"]::after { content: ""; position: absolute; inset: -6px; border: 2px solid var(--pink); }
+.sw .same { width: auto; padding: 0 8px; background: #fff; color: #000; font-size: 12px; }
+.swname { font-size: 12px; color: #555; margin-top: 6px; min-height: 1.4em; }
+
+.pad { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; background: #8f6dc6; padding: 7px; }
+.pad button { aspect-ratio: 1; border: 2px solid transparent; padding: 0; display: grid; place-items: center; }
+.pad button[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 0 2px #000; }
+.pad canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.syms { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 5px; }
+.syms button { aspect-ratio: 1; background: #fff; border: 2px solid #000; padding: 4px; }
+.syms button[aria-pressed="true"] { background: #000; }
+.syms canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.txt { display: flex; gap: 8px; flex-wrap: wrap; }
+.txt label { display: flex; flex-direction: column; font-size: 12px; color: #555; gap: 3px; }
+.txt input { font: 18px var(--px); letter-spacing: .05em; text-transform: uppercase; width: 7.5em; padding: 4px 6px;
+  border: 2px solid #000; background: #fff; color: #000; }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.pill { color: #fff; padding: 2px 8px; white-space: nowrap; }
+.pill.ok { background: var(--ok); } .pill.mid { background: var(--amber); } .pill.bad { background: var(--red); }
+.tog { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 10px; }
+.tog input { width: 18px; height: 18px; accent-color: var(--pink); }
+
+table { border-collapse: collapse; width: 100%; font-size: 13px; color: inherit; font-family: inherit; letter-spacing: inherit; }
+.tbl { overflow-x: auto; }
+td, th { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: normal; color: var(--pinkdk); }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot { display: inline-block; width: 12px; height: 12px; border: 1px solid #000; vertical-align: -1px; margin-right: 4px; }
+textarea { width: 100%; box-sizing: border-box; height: 120px; font: 12px ui-monospace, monospace; border: 2px solid #000;
+  background: #f6f6f6; color: #000; resize: vertical; }
+.go { background: #000; color: #fff; border: 2px solid #000; padding: 6px 14px; }
+.go:hover { background: var(--pink); color: #000; }
+.copied { font-size: 13px; color: var(--ok); margin-left: 8px; }
+footer { margin: 26px 0 0; color: var(--dim); font-size: 13px; text-align: center; }
+
+@media (max-width: 900px) {
+  .lab { grid-template-columns: minmax(0, 1fr); }
+  .stage { position: static; }
+  .view { height: auto; aspect-ratio: 4 / 3; max-width: 100%; }
+}
+@media (max-width: 520px) { .top canvas { width: 84px; } .top h1 { font-size: 22px; } .top p { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <canvas id="logo" width="240" height="214" aria-label="BBL MOD SWAPPER"></canvas>
+    <div><h1>PARTS LAB</h1>
+      <p>Design knobs, button tiles and a case colour for your FM-1. Every part you pick here becomes a real 3D print.</p></div>
+  </header>
+  <div class="proto"><b>PROTOTYPE.</b> Sizes come from the FM-1 case file and a full FM-1 model. Knob fit and button tiles are still being test-printed, so sizes may change.</div>
+
+  <div class="lab">
+    <section class="stage" aria-label="3D preview">
+      <div class="view" id="view">
+        <span class="tag" id="seltag">ALL KNOBS</span>
+        <span class="hint">DRAG TO TURN. SCROLL OR PINCH TO ZOOM. CLICK A KNOB OR BUTTON TO EDIT IT.</span>
+      </div>
+      <div class="views dark" role="group" aria-label="Camera">
+        <button class="chip" data-cam="angle" aria-pressed="true">ANGLE</button>
+        <button class="chip" data-cam="top" aria-pressed="false">TOP</button>
+        <button class="chip" data-cam="knobs" aria-pressed="false">KNOBS CLOSE</button>
+        <button class="chip" data-cam="side" aria-pressed="false">SIDE</button>
+      </div>
+    </section>
+
+    <div class="panel">
+      <section class="pop" id="knobs">
+        <h2>Knobs <span>8 ON THE FM-1</span></h2>
+        <div class="lbl">Editing</div>
+        <div class="row" id="ktarget" role="group" aria-label="Which knobs"></div>
+        <div class="lbl">Shape</div>
+        <div class="types" id="ktypes" role="group" aria-label="Knob shape"></div>
+        <div class="lbl">Body colour</div>
+        <div class="sw" id="kbody" role="group" aria-label="Knob body colour"></div>
+        <div class="lbl">Accent colour <span style="color:#555">(pointer / skirt / top)</span></div>
+        <div class="sw" id="kacc" role="group" aria-label="Knob accent colour"></div>
+        <div class="swname" id="kname"></div>
+        <p class="note">Knobs push onto the FM-1's 6 mm knurled pot shafts (6.8 mm tall). No screws, no glue. The exact hole size gets locked in after the fit test.</p>
+      </section>
+
+      <section class="pop" id="buttons">
+        <h2>Button tiles <span>12 FUNCTION KEYS</span></h2>
+        <div class="pad" id="pad" role="group" aria-label="Pick a button"></div>
+        <div class="lbl" id="bname">Button</div>
+        <div class="row" role="group" aria-label="Legend type">
+          <button class="chip" id="modeSym" aria-pressed="false">SYMBOL</button>
+          <button class="chip" id="modeTxt" aria-pressed="true">TEXT</button>
+          <button class="chip" id="modeNone" aria-pressed="false">BLANK</button>
+        </div>
+        <div id="symBox" hidden><div class="lbl">Symbol</div><div class="syms" id="syms"></div></div>
+        <div id="txtBox"><div class="lbl">Label</div>
+          <div class="txt">
+            <label for="t1">LINE 1<input id="t1" maxlength="5" autocomplete="off" spellcheck="false"></label>
+            <label for="t2">LINE 2 (OPTIONAL)<input id="t2" maxlength="5" autocomplete="off" spellcheck="false"></label>
+          </div>
+        </div>
+        <div class="check" id="check"></div>
+        <div class="lbl">Tile colour</div>
+        <div class="sw" id="bcap" role="group" aria-label="Tile colour"></div>
+        <div class="lbl">Legend colour</div>
+        <div class="sw" id="bleg" role="group" aria-label="Legend colour"></div>
+        <label class="tog" for="ball"><input type="checkbox" id="ball" checked> COLOURS APPLY TO ALL 12 TILES</label>
+        <p class="note" style="margin-top:10px">The stock gel buttons only stand 1 mm proud, too low for a cap to clip on. So each tile is a thin 9 mm square that sticks onto the top of its button with double-sided tape, and the button still presses the same. The legend is printed flush in a second colour, so it can't rub off.</p>
+      </section>
+
+      <section class="pop" id="case">
+        <h2>Case <span>162 × 97 MM</span></h2>
+        <div class="lbl">Case colour</div>
+        <div class="sw" id="ccol" role="group" aria-label="Case colour"></div>
+        <div class="swname" id="cname"></div>
+        <p class="note" style="margin-top:10px">Want built-in jacks for mods, a deeper bottom or a skin? See the case pulled apart in the <a href="../case/" style="color:var(--pinkdk)">Case Lab</a>.</p>
+      </section>
+
+      <section class="pop" id="sheet">
+        <h2>Build sheet <span id="sheetcount"></span></h2>
+        <div class="tbl"><table id="sheettbl"></table></div>
+        <div class="lbl">Filament colours</div>
+        <div id="fils" class="note"></div>
+        <div class="lbl">Design code</div>
+        <p class="note">This code is the whole design. It is what the printing side turns into STL files.</p>
+        <textarea id="json" readonly aria-label="Design code"></textarea>
+        <div style="margin-top:8px"><button class="go" id="copy">COPY CODE</button><span class="copied" id="copied" hidden>COPIED</span>
+          <button class="go" id="reset" style="margin-left:8px">START OVER</button></div>
+      </section>
+    </div>
+  </div>
+  <footer>BBL MOD SWAPPER · PARTS LAB · COLOURS ON SCREEN ARE CLOSE, NOT EXACT</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+/* ---------- logo (same as the guide) ---------- */
+const G = {"A":[6,[30,51,51,63,51,51,51]],"B":[6,[62,51,51,62,51,51,62]],"D":[6,[62,51,51,51,51,51,62]],"E":[6,[63,48,48,62,48,48,63]],"L":[6,[48,48,48,48,48,48,63]],"M":[7,[99,119,127,107,99,99,99]],"O":[6,[30,51,51,51,51,51,30]],"P":[6,[62,51,51,62,48,48,48]],"R":[6,[62,51,51,62,60,54,51]],"S":[6,[31,48,48,30,3,3,62]],"W":[7,[99,99,99,107,127,119,99]]};
+function logoText(ctx, W, t, y, sx, gap, col) {
+  let w = -gap; for (const ch of t) w += G[ch][0] * sx + gap;
+  let X = Math.round((W - w) / 2); ctx.fillStyle = col;
+  for (const ch of t) { const [n, rows] = G[ch]; for (let r = 0; r < 7; r++) for (let k = 0; k < n; k++) if (rows[r] & (1 << (n - 1 - k))) ctx.fillRect(X + k * sx, y + r * sx, sx, sx); X += n * sx + gap; }
+}
+{ const x = document.getElementById("logo").getContext("2d");
+  logoText(x, 240, "BBL", 0, 12, 4, "#ff1494"); logoText(x, 240, "MOD", 91, 11, 8, "#ffffff"); logoText(x, 240, "SWAPPER", 179, 5, 2, "#ffffff"); }
+
+/* ---------- data ---------- */
+// Filament palette (matte PLA, approximate on screen)
+const COLS = [
+  ["black","BLACK","#141414"],["white","WHITE","#f1f1ee"],["grey","GREY","#8b8e90"],["hotpink","HOT PINK","#ff1494"],
+  ["fm1pink","FM-1 PINK","#e7a6dc"],["pastel","PASTEL PINK","#f4a9cf"],["lilac","LILAC","#b99be0"],["purple","PURPLE","#6a3fb8"],["blue","BLUE","#1f4fd1"],
+  ["cyan","CYAN","#17b3d6"],["green","GREEN","#1fae4b"],["yellow","YELLOW","#f5d916"],["orange","ORANGE","#ff6a13"],["red","RED","#d1152a"]];
+const C = Object.fromEntries(COLS.map(([id, n, h]) => [id, { n, h }]));
+
+// FM-1 layout in mm. Hole/opening centres from the case STL; part sizes and pitches from the full FM-1 model
+// (Fm 1.step, 2026-11-22). x from the left edge, y from the front edge.
+const W = 162, D = 97, BODY_H = 18.3, GEL_H = 1.0;   // gel keys/buttons stand 1.0 mm proud of the panel
+const SHAFT = { d: 6.0, h: 6.8 };                     // pot shafts: knurled, 6.8 mm above the panel
+const FEET = [[19.41, 14.55], [142.59, 14.55], [19.41, 82.45], [142.59, 82.45]];   // Ø12 -> Ø8, 3.7 tall
+const KNOBS = [
+  { id: "L1", x: 14, y: 81, name: "MASTER" }, { id: "L2", x: 31, y: 81, name: "SELECT" },
+  { id: "L3", x: 14, y: 64, name: "PRESETS" }, { id: "L4", x: 31, y: 64, name: "ALGORITHM" },
+  { id: "K1", x: 91, y: 81, name: "KNOB1" }, { id: "K2", x: 109, y: 81, name: "KNOB2" },
+  { id: "K3", x: 127, y: 81, name: "KNOB3" }, { id: "K4", x: 145, y: 81, name: "KNOB4" }];
+const PAD = { x: 118.15, y: 58.65, w: 63.8, h: 21.8, pitchX: 10, pitchY: 10, btn: 9.33 };   // gel buttons 9.33 square
+const CAP = 9.0, CAP_FACE = 7.8, CAP_H = 0.8;        // stick-on tile on top of each gel button (mm)
+const STOCK = ["FX","SEL","ENV","LFO","EDIT","GLO","HOME","SAVE","ARP","SEQ","PLAY/STOP","REC"];
+const SCREEN = { x: 61.1, y: 70.2, s: 38 }, KEYS = { x: 81, y: 24.25, w: 148.8, h: 34.8, pitch: 9.1 };
+const OCT = { x: 22.05, y: 51.3, w: 24.7, h: 7.6, kw: 10.85, kd: 6.95, pitch: 13 };
+
+// Knob shapes. Rings are [radius, height, ribbed] from the bottom up (mm). Same numbers feed the STL generator.
+const TYPES = {
+  STUB:  { name: "STUB",  dims: "Ø11 × 12",
+           rings: [[5.5,0,0],[5.5,0.8,0],[5.5,1.0,1],[5.5,11.2,1],[5.5,11.4,0],[4.9,12,0]],
+           rib: { n: 24, depth: 0.4, shape: "square" }, accent: "topline" },
+  SKIRT: { name: "SKIRT", dims: "Ø14 × 13",
+           skirt: [[7,0,0],[7,1.6,0],[6.2,2.4,0]],
+           rings: [[5.25,2.2,0],[5.25,2.6,0],[4.75,12.4,0],[4.2,13,0]], rib: null, accent: "skirt" },
+  CHUNK: { name: "CHUNK", dims: "Ø14 × 10",
+           rings: [[7,0,0],[7,0.6,1],[7,9.2,1],[7,9.4,0],[6.5,10,0]],
+           rib: { n: 12, depth: 0.7, shape: "scallop" }, accent: "disc" } };
+
+// Button symbols, 7x7 pixels (1 pixel ≈ 0.6 mm on the cap)
+const SYMS = {
+  play:  ["X......","XXX....","XXXXX..","XXXXXXX","XXXXX..","XXX....","X......"],
+  stop:  [".......",".XXXXX.",".XXXXX.",".XXXXX.",".XXXXX.",".XXXXX.","......."],
+  rec:   ["..XXX..",".XXXXX.","XXXXXXX","XXXXXXX","XXXXXXX",".XXXXX.","..XXX.."],
+  ring:  ["..XXX..",".X...X.","X.....X","X.....X","X.....X",".X...X.","..XXX.."],
+  home:  ["...X...","..XXX..",".XXXXX.","XXXXXXX",".XX.XX.",".XX.XX.",".XX.XX."],
+  save:  ["XXXXXX.","XX..XXX","XXXXXXX","X.....X","X.....X","X.....X","XXXXXXX"],
+  up:    ["...X...","..XXX..",".XXXXX.","XXXXXXX","..XXX..","..XXX..","..XXX.."],
+  down:  ["..XXX..","..XXX..","..XXX..","XXXXXXX",".XXXXX.","..XXX..","...X..."],
+  left:  ["...X...","..XX...",".XXXXXX","XXXXXXX",".XXXXXX","..XX...","...X..."],
+  right: ["...X...","...XX..","XXXXXX.","XXXXXXX","XXXXXX.","...XX..","...X..."],
+  plus:  ["..XXX..","..XXX..","XXXXXXX","XXXXXXX","XXXXXXX","..XXX..","..XXX.."],
+  minus: [".......",".......","XXXXXXX","XXXXXXX","XXXXXXX",".......","......."],
+  note:  ["..XXXXX","..X...X","..X...X","..X...X","XXX.XXX","XXX.XXX","XXX.XXX"],
+  sine:  [".X.....","X.X....","X.X....","X..X..X","....X.X","....X.X",".....X."],
+  tri:   ["...X...","..X.X..","..X.X..",".X...X.",".X...X.","X.....X","X.....X"],
+  pulse: ["XXXX...","...X...","...X...","...X...","...X...","...X...","...XXXX"],
+  star:  ["...X...","...X...","XXXXXXX",".XXXXX.","..XXX..",".XX.XX.","X.....X"],
+  heart: [".XX.XX.","XXXXXXX","XXXXXXX","XXXXXXX",".XXXXX.","..XXX..","...X..."],
+  skull: [".XXXXX.","XXXXXXX","X..X..X","XXXXXXX",".XX.XX.",".XXXXX.",".X.X.X."],
+  bolt:  ["....XX.","...XX..","..XX...",".XXXXX.","...XX..","..XX...",".XX...."] };
+const SYM_MM = 0.62;   // pixel size of symbols on the cap
+
+/* ---------- state ---------- */
+const DEFAULT = () => ({
+  v: 1,
+  case: "fm1pink",
+  knobs: KNOBS.map(k => ({ id: k.id, type: k.id[0] === "K" ? "SKIRT" : "STUB", body: "black", acc: "hotpink" })),
+  btns: STOCK.map(s => ({ mode: "txt", l1: s.split("/")[0], l2: s.split("/")[1] || "", sym: "play", cap: "black", leg: "hotpink" })) });
+let S = DEFAULT();
+try { const s = JSON.parse(localStorage.getItem("bbl-parts-lab-v1")); if (s && s.v === 1 && s.knobs?.length === 8 && s.btns?.length === 12) S = s; } catch (e) {}
+const save = () => { try { localStorage.setItem("bbl-parts-lab-v1", JSON.stringify(S)); } catch (e) {} };
+let kTarget = "ALL", bSel = 0;
+
+/* ---------- text fitting / print check ---------- */
+const meas = document.createElement("canvas").getContext("2d");
+function labelUnits(b) {   // size of the label in font pixels (BLBPixel: 1 pixel = 100 units, 1000 per em)
+  meas.font = "100px BLBPixel";
+  const lines = [b.l1, b.l2].map(s => (s || "").toUpperCase()).filter(Boolean);
+  if (!lines.length) return null;
+  const w = Math.max(...lines.map(s => meas.measureText(s).width / 10 - 1));  // drop trailing gap
+  const h = lines.length * 7 + (lines.length - 1) * 2;
+  return { lines, w, h };
+}
+function printCheck(b) {
+  if (b.mode === "none") return { cls: "ok", txt: "BLANK TILE", px: null };
+  let px;
+  if (b.mode === "sym") px = SYM_MM;
+  else { const u = labelUnits(b); if (!u) return { cls: "ok", txt: "BLANK TILE", px: null }; px = Math.min(CAP_FACE / u.w, CAP_FACE * 0.62 / u.h, 0.62); }
+  const mm = px.toFixed(2);
+  if (px >= 0.45) return { cls: "ok", txt: "PRINTS CLEAN", px, why: `smallest line ${mm} mm, fine on a 0.4 nozzle` };
+  if (px >= 0.28) return { cls: "mid", txt: "NEEDS 0.2 NOZZLE", px, why: `smallest line ${mm} mm, too thin for a 0.4 nozzle` };
+  return { cls: "bad", txt: "TOO SMALL", px, why: `smallest line ${mm} mm, use fewer letters` };
+}
+
+/* ---------- cap face drawing (used for UI and 3D) ---------- */
+function drawCap(ctx, size, b) {
+  const s = size / CAP;                       // canvas px per mm
+  ctx.fillStyle = C[b.cap].h; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = C[b.leg].h;
+  if (b.mode === "sym") {
+    const m = SYMS[b.sym]; const p = SYM_MM * s; const o = (size - 7 * p) / 2;
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) if (m[r][c] === "X") ctx.fillRect(Math.round(o + c * p), Math.round(o + r * p), Math.ceil(p), Math.ceil(p));
+  } else if (b.mode === "txt") {
+    const u = labelUnits(b); if (!u) return;
+    const px = Math.min(CAP_FACE / u.w, CAP_FACE * 0.62 / u.h, 0.62) * s;
+    ctx.font = `${px * 10}px BLBPixel`; ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    const top = (size - u.h * px) / 2;   // caps are 7 font pixels tall, sitting on the baseline
+    u.lines.forEach((t, i) => { const w = ctx.measureText(t).width - px; ctx.fillText(t, Math.round((size - w) / 2), Math.round(top + i * 9 * px + 7 * px)); });
+  }
+}
+
+/* ---------- three.js scene ---------- */
+const view = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x121012);
+const cam = new THREE.PerspectiveCamera(32, 1, 1, 2000);
+const ctl = new THREE.OrbitControls(cam, renderer.domElement);
+ctl.enableDamping = true; ctl.minDistance = 60; ctl.maxDistance = 520; ctl.maxPolarAngle = Math.PI * 0.49;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x302030, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(-80, 160, 120); scene.add(sun);
+const rim = new THREE.DirectionalLight(0xff9fd0, 0.25); rim.position.set(120, 60, -140); scene.add(rim);
+
+const P = (x, y) => new THREE.Vector3(x - W / 2, 0, -(y - D / 2));   // FM-1 mm -> world (front edge toward camera)
+const mat = (hex, rough = 0.62) => new THREE.MeshStandardMaterial({ color: new THREE.Color(hex).convertSRGBToLinear(), roughness: rough, metalness: 0 });
+function roundRect(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+}
+function slab(w, h, t, r, m, bevel = 0.4) {
+  const g = new THREE.ExtrudeGeometry(roundRect(w, h, r), { depth: t, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 10 });
+  g.rotateX(-Math.PI / 2); return new THREE.Mesh(g, m);
+}
+
+// Case body
+const caseMat = mat(C[S.case].h, 0.7);
+const body = slab(W - 2, D - 2, BODY_H - 2, 9, caseMat, 1); body.position.y = -BODY_H + 1; scene.add(body);
+{ const g = new THREE.CylinderGeometry(6, 4, 3.7, 40), m = mat("#1a1a1a", 0.9);
+  for (const [x, y] of FEET) { const f = new THREE.Mesh(g, m); f.position.copy(P(x, y)); f.position.y = -BODY_H - 0.2 - 1.85; scene.add(f); } }
+const gelMat = mat("#8f6dc6", 0.55), gelKey = mat("#b498e6", 0.45);
+// Screen with the splash
+{ const cv = document.createElement("canvas"); cv.width = cv.height = 256; const x = cv.getContext("2d");
+  x.fillStyle = "#050505"; x.fillRect(0, 0, 256, 256); x.save(); x.translate(8, 30);
+  logoText(x, 240, "BBL", 0, 12, 4, "#ff1494"); logoText(x, 240, "MOD", 91, 11, 8, "#ffffff"); logoText(x, 240, "SWAPPER", 179, 5, 2, "#ffffff"); x.restore();
+  const bez = slab(SCREEN.s, SCREEN.s, 0.3, 3, mat("#050505", 0.3), 0); bez.position.copy(P(SCREEN.x, SCREEN.y)); scene.add(bez);
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding;
+  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ map: t }));
+  lcd.rotation.x = -Math.PI / 2; lcd.position.copy(P(SCREEN.x, SCREEN.y)); lcd.position.y = 0.36; scene.add(lcd); }
+// Keyboard (stock gel, not editable yet): 16 keys starting on F, 11 "black" keys behind them on the white-key
+// boundaries. Pitch 9.1, keys 16.4 deep, flared base ~9.8 wide, 1 mm proud (FM-1 model). Legends from photos.
+const lineMat = mat("#4a4458", 0.5);
+function legendPlane(text, w, h, px) {            // small printed legend on a gel key or the panel
+  const cv = document.createElement("canvas"); cv.width = Math.round(w * 24); cv.height = Math.round(h * 24);
+  const x = cv.getContext("2d"); x.fillStyle = "#3e3650"; x.font = `${px * 24}px BLBPixel`; x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText(text, cv.width / 2, cv.height / 2);
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true })); m.rotation.x = -Math.PI / 2; return m;
+}
+const gelLegends = [];
+function gelKeyAt(x, y, wBase, dBase, wTop, dTop) {   // flared gel key: thin wide base + rounded top, top at GEL_H
+  const b = slab(wBase, dBase, 0.25, Math.min(wBase, dBase) / 2 - 0.01, gelKey, 0); b.position.copy(P(x, y)); scene.add(b);
+  const t = slab(wTop, dTop, GEL_H - 0.45, Math.min(wTop, dTop) / 2 - 0.2, gelKey, 0.2); t.position.copy(P(x, y)); t.position.y = 0.25; scene.add(t);
+}
+{ const kb = slab(KEYS.w, KEYS.h, 0.02, 5, gelMat, 0); kb.position.copy(P(KEYS.x, KEYS.y)); scene.add(kb);
+  const p = KEYS.pitch, x0 = KEYS.x - 0.15 - 8 * p, yW = KEYS.y - 7.9, yB = KEYS.y + 8.1, LY = GEL_H + 0.03;
+  for (let i = 0; i < 16; i++) {
+    const x = x0 + p * (i + 0.5);
+    gelKeyAt(x, yW, 9.6, 16.4, 7.4, 14.2);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.06, 8), lineMat); l.position.copy(P(x, yW)); l.position.y = LY; scene.add(l); }
+  const BLACK = [[1,"OP1"],[2,"OP2"],[3,"OP3"],[5,"OP4"],[6,"OP5"],[8,"OP6"],[9,"PIT"],[10,"GLO"],[12,"MONO"],[13,"POLY"],[15,""]];
+  for (const [b, name] of BLACK) {
+    const x = x0 + p * b;
+    gelKeyAt(x, yB, 9.6, 16.4, 7.4, 14.2);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(name ? 0.9 : 5.5, 0.06, name ? 4 : 0.9), lineMat); l.position.copy(P(x, name ? yB + 3 : yB)); l.position.y = LY; scene.add(l);
+    if (b === 15) l.rotation.y = Math.PI / 2;
+    if (name) gelLegends.push([name, x, yB - 3, 7, 2.6, 1.7]); }
+  const oc = slab(OCT.w, OCT.h, 0.02, 2.5, gelMat, 0); oc.position.copy(P(OCT.x, OCT.y)); scene.add(oc);
+  [["OCT-", -OCT.pitch / 2], ["OCT+", OCT.pitch / 2]].forEach(([n, d]) => { gelKeyAt(OCT.x + d, OCT.y, OCT.kw, OCT.kd, OCT.kw - 1.2, OCT.kd - 1.2);
+    gelLegends.push([n, OCT.x + d, OCT.y, 10, 5, 2]); }); }
+// Panel print (white, like the stock FM-1)
+function panelPrint() {
+  for (const [n, x, y, w, h, px] of gelLegends) { const m = legendPlane(n, w, h, px); m.position.copy(P(x, y)); m.position.y = GEL_H + 0.02; scene.add(m); }
+  const cv = document.createElement("canvas"); cv.width = W * 10; cv.height = D * 10; const x = cv.getContext("2d");
+  x.fillStyle = "rgba(255,255,255,.92)"; x.font = "22px BLBPixel"; x.textAlign = "center"; x.textBaseline = "middle";
+  for (const k of KNOBS) x.fillText(k.name, k.x * 10, (D - (k.y + 7)) * 10);
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({ map: t, transparent: true }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.02; scene.add(m);
+}
+// 12-button tray: gel sheet with 9.33 mm square buttons on a 10 mm pitch
+const padXY = i => { const r = Math.floor(i / 6), c = i % 6; return [PAD.x + (c - 2.5) * PAD.pitchX, PAD.y + (0.5 - r) * PAD.pitchY]; };
+{ const t = slab(PAD.w, PAD.h, 0.02, 3, gelMat, 0); t.position.copy(P(PAD.x, PAD.y)); scene.add(t);
+  for (let i = 0; i < 12; i++) { const [x, y] = padXY(i); const b = slab(PAD.btn - 0.4, PAD.btn - 0.4, GEL_H - 0.2, 1.6, gelKey, 0.2); b.position.copy(P(x, y)); scene.add(b); } }
+
+// Knob geometry: rings around the axis, ribs cut in by angle
+const NSEG = 120;
+function ribAt(rib, th) {
+  if (!rib) return 0;
+  const f = (th * rib.n / (2 * Math.PI)) % 1;
+  return rib.shape === "square" ? (f < 0.45 ? rib.depth : 0) : rib.depth * Math.pow(0.5 + 0.5 * Math.cos(th * rib.n), 3);
+}
+function knobGeo(rings, rib) {
+  const pos = [];
+  const pt = (ri, k) => { const [r, z, ribbed] = rings[ri]; const th = (k % NSEG) / NSEG * Math.PI * 2; const rr = r - (ribbed ? ribAt(rib, th) : 0); return [rr * Math.cos(th), z, -rr * Math.sin(th)]; };
+  for (let i = 0; i < rings.length - 1; i++) for (let k = 0; k < NSEG; k++) {
+    const a = pt(i, k), b = pt(i, k + 1), c = pt(i + 1, k + 1), d = pt(i + 1, k);
+    pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+  }
+  const top = rings[rings.length - 1][1], bot = rings[0][1];
+  for (let k = 0; k < NSEG; k++) { pos.push(0, top, 0, ...pt(rings.length - 1, k), ...pt(rings.length - 1, k + 1)); pos.push(0, bot, 0, ...pt(0, k + 1), ...pt(0, k)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+}
+const geoCache = {};
+const geo = (key, f) => geoCache[key] || (geoCache[key] = f());
+const GAP = 0.6;   // knob floats this far above the panel
+const knobObjs = KNOBS.map((k, i) => {
+  const grp = new THREE.Group(); grp.position.copy(P(k.x, k.y)); grp.position.y = GAP;
+  grp.rotation.y = [0.9, -0.4, 2.2, -1.6, 1.4, -0.2, 0.5, -1.1][i]; grp.userData.pick = { kind: "knob", i }; scene.add(grp); return grp; });
+function buildKnob(i) {
+  const grp = knobObjs[i], k = S.knobs[i], T = TYPES[k.type];
+  while (grp.children.length) grp.remove(grp.children[0]);
+  const mb = mat(C[k.body].h), ma = mat(C[k.acc].h);
+  grp.add(new THREE.Mesh(geo(k.type, () => knobGeo(T.rings, T.rib)), mb));
+  const topZ = T.rings[T.rings.length - 1][1];
+  if (T.accent === "topline") { const m = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 4.2), ma); m.position.set(0, topZ, -2.3); grp.add(m); }
+  if (T.accent === "skirt") {
+    grp.add(new THREE.Mesh(geo("skirt", () => knobGeo(T.skirt, null)), ma));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.0, 9.6, 0.8), ma); m.position.set(0, 2.6 + 4.6, -4.75); m.rotation.x = -0.05; grp.add(m);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 3.0), ma); t.position.set(0, topZ, -2.6); grp.add(t);
+  }
+  if (T.accent === "disc") {
+    const d = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 0.6, 64), ma); d.position.y = topZ - 0.25; grp.add(d);
+    const n = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 3.2), mb); n.position.set(0, topZ + 0.1, -3.4); grp.add(n);
+  }
+}
+
+// Button tiles (stick onto the top of each gel button)
+const capObjs = STOCK.map((_, i) => {
+  const [x, y] = padXY(i);
+  const cv = document.createElement("canvas"); cv.width = cv.height = 192;
+  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+  const side = mat("#000"), topM = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(CAP, CAP_H, CAP), [side, side, topM, side, side, side]);
+  m.position.copy(P(x, y)); m.position.y = GEL_H + CAP_H / 2; m.userData.pick = { kind: "btn", i }; scene.add(m);
+  return { m, cv, tex, side };
+});
+function buildCap(i) {
+  const o = capObjs[i], b = S.btns[i];
+  drawCap(o.cv.getContext("2d"), o.cv.width, b); o.tex.needsUpdate = true;
+  o.side.color = new THREE.Color(C[b.cap].h).convertSRGBToLinear();
+}
+
+// Selection marker
+const selRing = new THREE.Mesh(new THREE.TorusGeometry(8.6, 0.35, 8, 64), new THREE.MeshBasicMaterial({ color: 0xff1494 }));
+selRing.rotation.x = Math.PI / 2; selRing.position.y = 0.3; scene.add(selRing);
+const selBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(CAP + 1.2, CAP_H + 0.8, CAP + 1.2)), new THREE.LineBasicMaterial({ color: 0xff1494 }));
+scene.add(selBox);
+let selMode = "knob";
+function placeMarkers() {
+  selRing.visible = selMode === "knob" && kTarget !== "ALL";
+  if (selRing.visible) { const k = KNOBS.find(k => k.id === kTarget); const p = P(k.x, k.y); selRing.position.x = p.x; selRing.position.z = p.z; }
+  selBox.visible = selMode === "btn";
+  if (selBox.visible) selBox.position.copy(capObjs[bSel].m.position);
+  document.getElementById("seltag").textContent = selMode === "btn" ? `BUTTON: ${STOCK[bSel]}` : kTarget === "ALL" ? "ALL KNOBS" : KNOBS.find(k => k.id === kTarget).name;
+}
+
+// Cameras
+const CAMS = { angle: [[0, 150, 190], [0, -4, 4]], top: [[0, 250, 1], [0, 0, 0]], knobs: [[40, 70, 75], [45, 4, -22]], side: [[0, 20, 220], [0, 0, 0]] };
+let camName = "angle";
+function setCam(n) { camName = n; const [p, t] = CAMS[n]; const f = Math.max(0.82, 1.3 / (cam.aspect || 1.5));   // pull back on tall views so the FM-1 fits the width
+  const tv = new THREE.Vector3(...t); cam.position.copy(new THREE.Vector3(...p).sub(tv).multiplyScalar(f).add(tv)); ctl.target.copy(tv); ctl.update();
+  document.querySelectorAll("[data-cam]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cam === n))); }
+document.querySelectorAll("[data-cam]").forEach(b => b.addEventListener("click", () => setCam(b.dataset.cam)));
+setCam("angle");
+
+let firstFit = true;
+function resize() { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); if (firstFit) { firstFit = false; setCam(camName); } }
+new ResizeObserver(resize).observe(view); resize();
+(function loop() { ctl.update(); renderer.render(scene, cam); requestAnimationFrame(loop); })();
+
+// Click to pick
+const ray = new THREE.Raycaster(); let down = null;
+renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ray.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, cam);
+  for (const hit of ray.intersectObjects(scene.children, true)) {
+    let o = hit.object; while (o && !o.userData.pick) o = o.parent;
+    if (!o) continue;
+    const p = o.userData.pick;
+    if (p.kind === "knob") { selMode = "knob"; kTarget = KNOBS[p.i].id; document.getElementById("knobs").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    else { selMode = "btn"; bSel = p.i; document.getElementById("buttons").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    renderUI(); return;
+  }
+});
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+function swatches(el, cur, onPick, extra) {
+  el.innerHTML = "";
+  if (extra) { const b = document.createElement("button"); b.className = "same"; b.textContent = extra.label; b.setAttribute("aria-pressed", String(cur === extra.id)); b.onclick = () => onPick(extra.id); el.append(b); }
+  for (const [id, n, h] of COLS) { const b = document.createElement("button"); b.style.background = h; b.title = n; b.setAttribute("aria-label", n);
+    b.setAttribute("aria-pressed", String(cur === id)); b.onclick = () => onPick(id); el.append(b); }
+}
+function typeSVG(T) {
+  const sc = 3.6, H = 62, cx = 50, base = H - 4; let d = "";
+  const half = (rings) => rings.map(([r, z]) => `${(cx + r * sc).toFixed(1)},${(base - z * sc).toFixed(1)}`);
+  const poly = rings => { const R = half(rings), L = rings.slice().reverse().map(([r, z]) => `${(cx - r * sc).toFixed(1)},${(base - z * sc).toFixed(1)}`); return `<polygon class="k" points="${cx},${base} ${R.join(" ")} ${L.join(" ")}"/>`; };
+  if (T.skirt) d += poly(T.skirt);
+  d += poly(T.rings);
+  return `<svg viewBox="0 0 100 ${H}" aria-hidden="true"><line class="g" x1="0" y1="${base}" x2="100" y2="${base}"/>${d}</svg>`;
+}
+const targetKnobs = () => kTarget === "ALL" ? S.knobs : S.knobs.filter(k => k.id === kTarget);
+
+function renderKnobUI() {
+  const kt = $("ktarget"); kt.innerHTML = "";
+  [["ALL", "ALL 8"], ...KNOBS.map(k => [k.id, k.name || k.id])].forEach(([id, lab]) => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = lab; b.setAttribute("aria-pressed", String(selMode === "knob" && kTarget === id));
+    b.onclick = () => { selMode = "knob"; kTarget = id; renderUI(); }; kt.append(b); });
+  const ref = targetKnobs()[0];
+  const ty = $("ktypes"); ty.innerHTML = "";
+  for (const [id, T] of Object.entries(TYPES)) {
+    const b = document.createElement("button"); b.className = "type"; b.setAttribute("aria-pressed", String(targetKnobs().every(k => k.type === id)));
+    b.innerHTML = `${typeSVG(T)}<b>${T.name}</b><small>${T.dims} MM</small>`;
+    b.onclick = () => { targetKnobs().forEach(k => k.type = id); changed(); }; ty.append(b); }
+  swatches($("kbody"), targetKnobs().every(k => k.body === ref.body) ? ref.body : null, id => { targetKnobs().forEach(k => k.body = id); changed(); });
+  swatches($("kacc"), targetKnobs().every(k => k.acc === ref.acc) ? ref.acc : null, id => { targetKnobs().forEach(k => k.acc = id === "same" ? k.body : id); changed(); }, { id: "same", label: "SAME AS BODY" });
+  $("kname").textContent = `${TYPES[ref.type].name} · ${C[ref.body].n}${ref.acc !== ref.body ? " WITH " + C[ref.acc].n : ""}`;
+}
+const padCanvases = [];
+function renderBtnUI() {
+  const pad = $("pad");
+  if (!pad.children.length) STOCK.forEach((s, i) => { const b = document.createElement("button"); b.setAttribute("aria-label", s); const cv = document.createElement("canvas"); cv.width = cv.height = 96; b.append(cv); padCanvases.push(cv);
+    b.onclick = () => { selMode = "btn"; bSel = i; renderUI(); }; pad.append(b); });
+  [...pad.children].forEach((b, i) => { b.setAttribute("aria-pressed", String(selMode === "btn" && bSel === i)); drawCap(padCanvases[i].getContext("2d"), 96, S.btns[i]); });
+  const b = S.btns[bSel];
+  $("bname").textContent = `BUTTON ${bSel + 1} · STOCK LABEL ${STOCK[bSel]}`;
+  $("modeSym").setAttribute("aria-pressed", String(b.mode === "sym")); $("modeTxt").setAttribute("aria-pressed", String(b.mode === "txt")); $("modeNone").setAttribute("aria-pressed", String(b.mode === "none"));
+  $("symBox").hidden = b.mode !== "sym"; $("txtBox").hidden = b.mode !== "txt";
+  if (document.activeElement !== $("t1")) $("t1").value = b.l1; if (document.activeElement !== $("t2")) $("t2").value = b.l2;
+  const sy = $("syms");
+  if (!sy.children.length) Object.keys(SYMS).forEach(n => { const bt = document.createElement("button"); bt.dataset.sym = n; bt.setAttribute("aria-label", n); const cv = document.createElement("canvas"); cv.width = cv.height = 7; bt.append(cv);
+    bt.onclick = () => { S.btns[bSel].sym = n; S.btns[bSel].mode = "sym"; changed(); }; sy.append(bt); });
+  [...sy.children].forEach(bt => { const on = b.sym === bt.dataset.sym; bt.setAttribute("aria-pressed", String(on)); const x = bt.firstChild.getContext("2d"); x.clearRect(0, 0, 7, 7); x.fillStyle = on ? "#ff1494" : "#000";
+    SYMS[bt.dataset.sym].forEach((row, r) => [...row].forEach((ch, c) => ch === "X" && x.fillRect(c, r, 1, 1))); });
+  const pc = printCheck(b);
+  $("check").innerHTML = `<span class="pill ${pc.cls}">${pc.txt}</span><span>${pc.why || ""}</span>`;
+  const all = $("ball").checked, tgt = all ? S.btns : [b];
+  swatches($("bcap"), tgt.every(x => x.cap === b.cap) ? b.cap : null, id => { tgt.forEach(x => x.cap = id); changed(); });
+  swatches($("bleg"), tgt.every(x => x.leg === b.leg) ? b.leg : null, id => { tgt.forEach(x => x.leg = id); changed(); });
+}
+$("modeSym").onclick = () => { S.btns[bSel].mode = "sym"; changed(); };
+$("modeTxt").onclick = () => { S.btns[bSel].mode = "txt"; changed(); };
+$("modeNone").onclick = () => { S.btns[bSel].mode = "none"; changed(); };
+["t1", "t2"].forEach((id, n) => $(id).addEventListener("input", e => { const v = e.target.value.toUpperCase().replace(/[^A-Z0-9+\-#&!?.]/g, ""); e.target.value = v; S.btns[bSel][n ? "l2" : "l1"] = v; S.btns[bSel].mode = "txt"; changed(); }));
+$("ball").addEventListener("change", renderUI);
+
+function renderCaseUI() { swatches($("ccol"), S.case, id => { S.case = id; changed(); }); $("cname").textContent = C[S.case].n + " CASE"; }
+
+function renderSheet() {
+  const rows = [];
+  const kg = {};
+  S.knobs.forEach(k => { const key = `${k.type}|${k.body}|${k.acc}`; (kg[key] = kg[key] || []).push(KNOBS.find(x => x.id === k.id).name || k.id); });
+  for (const [key, ids] of Object.entries(kg)) { const [t, b, a] = key.split("|");
+    rows.push([ids.length, `KNOB ${t}`, `${dot(b)}${C[b].n}${a !== b ? " + " + dot(a) + C[a].n : ""}`, ids.join(" ")]); }
+  const cg = {};
+  S.btns.forEach((b, i) => { const key = `${b.cap}|${b.leg}`; (cg[key] = cg[key] || []).push(legendName(b)); });
+  for (const [key, ls] of Object.entries(cg)) { const [c, l] = key.split("|"); rows.push([ls.length, "BUTTON TILE", `${dot(c)}${C[c].n} + ${dot(l)}${C[l].n}`, ls.join(" ")]); }
+  rows.push([1, "CASE SHELL", `${dot(S.case)}${C[S.case].n}`, "MOD SWAPPER CASE"]);
+  $("sheettbl").innerHTML = `<tr><th>QTY</th><th>PART</th><th>COLOURS</th><th>WHERE</th></tr>` + rows.map(r => `<tr><td class="n">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+  $("sheetcount").textContent = `${8 + 12 + 1} PARTS`;
+  const used = new Set([S.case]); S.knobs.forEach(k => { used.add(k.body); used.add(k.acc); }); S.btns.forEach(b => { used.add(b.cap); if (b.mode !== "none") used.add(b.leg); });
+  const tight = S.btns.map((b, i) => [STOCK[i], printCheck(b)]).filter(([, p]) => p.cls !== "ok");
+  $("fils").innerHTML = `${used.size} COLOURS: ${[...used].map(c => dot(c) + C[c].n).join(", ")}.` +
+    (tight.length ? `<br><span style="color:var(--red)">${tight.length} TILE LEGEND${tight.length > 1 ? "S" : ""} NEED A 0.2 NOZZLE OR FEWER LETTERS: ${tight.map(t => t[0]).join(", ")}.</span>` : "");
+  const code = { v: 1, fit: { shaft: SHAFT, tile: [CAP, CAP, CAP_H] }, case: S.case, knobs: S.knobs.map(k => ({ at: k.id, type: k.type, body: k.body, accent: k.acc })),
+    caps: S.btns.map((b, i) => ({ at: STOCK[i], cap: b.cap, legend: b.mode === "none" ? null : b.mode === "sym" ? { symbol: b.sym, colour: b.leg } : { text: [b.l1, b.l2].filter(Boolean), colour: b.leg } })) };
+  $("json").value = JSON.stringify(code);
+}
+const dot = c => `<i class="dot" style="background:${C[c].h}"></i>`;
+const legendName = b => b.mode === "none" ? "(BLANK)" : b.mode === "sym" ? `[${b.sym.toUpperCase()}]` : [b.l1, b.l2].filter(Boolean).join("/") || "(BLANK)";
+
+$("copy").onclick = () => { const t = $("json"); const ok = () => { $("copied").hidden = false; setTimeout(() => $("copied").hidden = true, 1600); };
+  try { navigator.clipboard.writeText(t.value).then(ok, () => { t.select(); }); } catch (e) { t.select(); } };
+let armed = false;
+$("reset").onclick = e => { if (!armed) { armed = true; e.target.textContent = "CLICK AGAIN TO RESET"; setTimeout(() => { armed = false; e.target.textContent = "START OVER"; }, 2500); return; }
+  armed = false; e.target.textContent = "START OVER"; S = DEFAULT(); kTarget = "ALL"; bSel = 0; selMode = "knob"; changed(); };
+
+function renderUI() { renderKnobUI(); renderBtnUI(); renderCaseUI(); renderSheet(); placeMarkers(); }
+function changed() {
+  S.knobs.forEach((_, i) => buildKnob(i)); S.btns.forEach((_, i) => buildCap(i));
+  caseMat.color = new THREE.Color(C[S.case].h).convertSRGBToLinear();
+  save(); renderUI();
+}
+document.fonts.load("10px BLBPixel").finally(() => { panelPrint(); changed(); });
+changed();
+})();
+</script>
+
+</body></html>
